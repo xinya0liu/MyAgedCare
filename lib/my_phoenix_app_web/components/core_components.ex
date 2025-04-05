@@ -169,7 +169,7 @@ defmodule MyPhoenixAppWeb.CoreComponents do
         phx-connected={hide("#server-error")}
         hidden
       >
-        {gettext("Hang in there while we get back on track")}
+        {gettext("Success")}
         <.icon name="hero-arrow-path" class="ml-1 h-3 w-3 animate-spin" />
       </.flash>
     </div>

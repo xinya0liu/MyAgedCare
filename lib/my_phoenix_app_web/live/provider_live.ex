@@ -9,13 +9,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
     
     # 获取 Google Maps API 密钥
     google_maps_api_key = Application.get_env(:my_phoenix_app, :google_maps_api_key)
-    
-    # 检查API密钥是否可用
-    if is_nil(google_maps_api_key) || google_maps_api_key == "" do
-      Logger.error("Google Maps API key is not configured")
-      Process.sleep(1000) # 给日志时间写入
-      System.halt(1) # 终止应用，因为没有API密钥应用无法正常工作
-    end
+    Logger.debug("Google Maps API key from config: #{inspect(google_maps_api_key)}")
     
     if connected?(socket) do
       Logger.debug("Socket connected")
@@ -29,8 +23,8 @@ defmodule MyPhoenixAppWeb.ProviderLive do
       
       Logger.debug("Found #{length(providers)} providers near default location")
       
-      # 默认选择ID为1的提供商
-      default_provider = Enum.find(providers, &(&1.id == 1))
+      # 默认选择第一个提供商
+      default_provider = List.first(providers)
 
       {:ok,
        socket
@@ -38,7 +32,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
        |> assign(:selected_provider, default_provider)
        |> assign(:loading, false)
        |> assign(:current_location, default_location)
-       |> assign(:google_maps_api_key, google_maps_api_key)
+       |> assign(:api_key_valid, true)
        |> assign(:has_unread_notification, true)}
     else
       Logger.debug("Socket not connected")
@@ -48,7 +42,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
        |> assign(:selected_provider, nil)
        |> assign(:loading, true)
        |> assign(:current_location, nil)
-       |> assign(:google_maps_api_key, google_maps_api_key)
+       |> assign(:api_key_valid, true)
        |> assign(:has_unread_notification, true)}
     end
   end
@@ -61,43 +55,119 @@ defmodule MyPhoenixAppWeb.ProviderLive do
   end
 
   @impl true
-  def handle_event("update-location", %{"latitude" => lat, "longitude" => lng, "provider_distances" => distances} = params, socket) do
-    Logger.debug("Updating location: lat=#{lat}, lng=#{lng}")
-    latitude = String.to_float(lat)
-    longitude = String.to_float(lng)
+  def handle_event("update-location", params, socket) do
+    Logger.debug("Received update-location event: #{inspect(params)}")
     
-    # 先设置加载状态
-    socket = assign(socket, :loading, true)
+    # 提取参数
+    {latitude, longitude, distances} = case params do
+      %{"latitude" => lat, "longitude" => lng, "provider_distances" => distances} ->
+        Logger.debug("Received provider_distances: #{inspect(distances)}")
+        {parse_float(lat), parse_float(lng), distances}
+      
+      %{"latitude" => lat, "longitude" => lng} ->
+        Logger.debug("No distances received, using default")
+        {parse_float(lat), parse_float(lng), %{}}
+      
+      _ ->
+        Logger.error("Invalid params for update-location: #{inspect(params)}")
+        {nil, nil, %{}}
+    end
     
-    # 获取新位置附近的提供商
-    providers = AgedCareProvider.list_nearby(latitude, longitude, 5) 
-                |> MyPhoenixApp.Repo.all()
-                |> Enum.map(fn provider ->
-                  # 从前端获取的距离数据中获取对应的距离
-                  distance = case distances do
-                    %{} -> Map.get(distances, Integer.to_string(provider.id), provider.distance)
-                    _ -> provider.distance
-                  end
-                  %{provider | distance: distance}
-                end)
+    if is_nil(latitude) or is_nil(longitude) do
+      Logger.error("Invalid coordinates: lat=#{inspect(latitude)}, lng=#{inspect(longitude)}")
+      {:noreply, socket}
+    else
+      Logger.debug("Updating location: lat=#{latitude}, lng=#{longitude}")
+      Logger.debug("Received distances: #{inspect(distances)}")
+      
+      # 先设置加载状态
+      socket = assign(socket, :loading, true)
+      
+      # 获取新位置附近的提供商
+      providers = 
+        try do
+          AgedCareProvider.list_nearby(latitude, longitude, 5) 
+          |> MyPhoenixApp.Repo.all()
+          |> Enum.map(fn provider ->
+            # 从前端获取的距离数据中获取对应的距离
+            distance = case get_provider_distance(distances, provider.id) do
+              {:ok, dist} -> 
+                Logger.debug("Setting distance for provider #{provider.id} to #{dist}m")
+                dist
+              {:error, reason} -> 
+                Logger.warning("Failed to get distance for provider #{provider.id}: #{reason}")
+                provider.distance || 0
+            end
+            
+            Logger.debug("Final distance for provider #{provider.id}: #{inspect(distance)}")
+            %{provider | distance: distance}
+          end)
+        rescue
+          e ->
+            Logger.error("Error fetching providers: #{inspect(e)}")
+            []
+        end
+      
+      Logger.debug("Found #{length(providers)} providers near location")
+      
+      # 如果有提供商，默认选择第一个
+      default_provider = if length(providers) > 0, do: List.first(providers), else: nil
+      
+      {:noreply,
+       socket
+       |> assign(:current_location, %{latitude: latitude, longitude: longitude})
+       |> assign(:providers, providers)
+       |> assign(:selected_provider, default_provider)
+       |> assign(:loading, false)}
+    end
+  end
+  
+  # 解析浮点数，处理错误情况
+  defp parse_float(value) when is_binary(value) do
+    case Float.parse(value) do
+      {float, _} -> float
+      :error -> nil
+    end
+  end
+  
+  defp parse_float(value) when is_float(value), do: value
+  defp parse_float(value) when is_integer(value), do: value / 1
+  defp parse_float(_), do: nil
+  
+  # 获取提供商距离
+  defp get_provider_distance(distances, provider_id) do
+    # 尝试不同的键格式
+    provider_key = to_string(provider_id)
     
-    Logger.debug("Found #{length(providers)} providers near location")
+    Logger.debug("Looking for distance with key '#{provider_key}' in distances map")
+    Logger.debug("Available keys: #{inspect(Map.keys(distances))}")
     
-    # 如果有提供商，默认选择第一个
-    default_provider = if length(providers) > 0, do: List.first(providers), else: nil
-    
-    {:noreply,
-     socket
-     |> assign(:current_location, %{latitude: latitude, longitude: longitude})
-     |> assign(:providers, providers)
-     |> assign(:selected_provider, default_provider)
-     |> assign(:loading, false)}
+    case get_in(distances, [provider_key]) do
+      nil -> 
+        Logger.warning("No distance found for provider #{provider_id}")
+        {:error, :not_found}
+        
+      distance when is_number(distance) -> 
+        Logger.debug("Using number distance #{distance} for provider #{provider_id}")
+        {:ok, distance}
+        
+      distance when is_binary(distance) -> 
+        Logger.debug("Converting string distance #{distance} for provider #{provider_id}")
+        case Float.parse(distance) do
+          {value, _} -> {:ok, value}
+          :error -> {:error, :parse_error}
+        end
+        
+      distance -> 
+        Logger.warning("Invalid distance format for provider #{provider_id}: #{inspect(distance)}")
+        {:error, :invalid_format}
+    end
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="w-full h-full flex flex-col" data-google-maps-api-key={@google_maps_api_key}>
+    <div class="w-full h-full flex flex-col">
       <div class="flex flex-col h-screen">
         <header class="py-3 flex flex-wrap justify-between items-center border-b px-3 shadow-sm bg-white" id="notification-header" phx-hook="NotificationHook">
           <div class="flex items-center w-full sm:w-auto justify-between sm:justify-start mb-2 sm:mb-0">
@@ -159,28 +229,10 @@ defmodule MyPhoenixAppWeb.ProviderLive do
         <div class="flex-1 flex flex-col">
           <div class="py-2 text-center w-full">
             <h1 class="text-xl font-semibold text-blue-800">Aged Care Providers Near Me</h1>
-            <div class="relative mt-2 w-full px-2 max-w-xl mx-auto">
-              <div class="bg-gray-100 rounded-full flex items-center p-1" phx-hook="LocationSearch" id="location-search-container">
-                <button class="ml-2">
-                  <.icon name="hero-arrow-left" class="h-5 w-5 text-blue-600" />
-                  <span class="ml-1">Back</span>
-                </button>
-                <input type="text" 
-                       placeholder="Type Your Location" 
-                       class="flex-1 p-2 bg-transparent border-none focus:outline-none focus:ring-0 text-center"
-                       id="location-input" />
-                <button class="bg-white p-2 rounded-full mr-1" data-action="search">
-                  <.icon name="hero-magnifying-glass" class="h-5 w-5 text-blue-600" />
-                </button>
-                <button class="bg-white p-2 rounded-full mr-1" data-action="current-location">
-                  <.icon name="hero-map-pin" class="h-5 w-5 text-blue-600" />
-                </button>
-              </div>
-            </div>
           </div>
 
           <div class="flex-1 overflow-hidden">
-            <div class="relative min-h-[250px] md:min-h-[300px] bg-gray-100 rounded-lg mx-0">
+            <div class="relative min-h-[250px] md:min-h-[300px] bg-gray-100 rounded-lg mx-0 my-4 sm:my-6">
               <!-- 地图加载占位符 -->
               <%= if @loading do %>
                 <div class="absolute inset-0 flex justify-center items-center bg-gray-100 rounded-lg z-10">
@@ -223,13 +275,6 @@ defmodule MyPhoenixAppWeb.ProviderLive do
               </div>
             </div>
             
-            <!-- Distance slider -->
-            <div class="flex justify-between items-center p-1 bg-white rounded text-xs sm:text-sm">
-              <span class="font-medium pl-2">500 M</span>
-              <input type="range" min="500" max="5000" value="2000" class="w-3/4" />
-              <span class="font-medium pr-2">2 KM</span>
-            </div>
-
             <!-- Provider list -->
             <div class="mt-1">
               <%= if @loading do %>
@@ -262,7 +307,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
                               <% end %>
                             </p>
                             <p class="text-sm text-gray-500 mt-1">
-                              <%= Float.round(provider.distance || 0, 1) %> m • 
+                              <%= format_distance(provider.distance) %> • 
                               <%= case provider.id do %>
                                 <% 1 -> %>4.9 ★
                                 <% 2 -> %>4.7 ★
@@ -581,4 +626,11 @@ defmodule MyPhoenixAppWeb.ProviderLive do
      |> assign(:has_unread_notification, false)
      |> push_event("toggle-notification", %{})}
   end
+
+  # 格式化距离显示
+  defp format_distance(nil), do: "-- m"
+  defp format_distance(0), do: "-- m"
+  defp format_distance(distance) when distance < 1, do: "< 1 m" 
+  defp format_distance(distance) when distance < 1000, do: "#{Float.round(distance, 1)} m"
+  defp format_distance(distance), do: "#{Float.round(distance / 1000, 2)} km"
 end 

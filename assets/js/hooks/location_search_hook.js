@@ -129,7 +129,7 @@ const LocationSearchHook = {
             message = "获取位置超时";
             break;
           default:
-            message = "无法获取您的位置";
+            message = "无法位置";
         }
         
         this.showNotification(message);

@@ -8,6 +8,8 @@
       <%= assigns[:page_title] || "MyPhoenixApp" %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
+    <!-- Google Maps API with Places library -->
+    <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAV0XHxKqFloBcVNQZzJ2s9_7tz4ZAIAgQ&libraries=geometry,places&callback=initGoogleMaps"></script>
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
