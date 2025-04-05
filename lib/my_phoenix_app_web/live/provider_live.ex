@@ -10,6 +10,13 @@ defmodule MyPhoenixAppWeb.ProviderLive do
     # 获取 Google Maps API 密钥
     google_maps_api_key = Application.get_env(:my_phoenix_app, :google_maps_api_key)
     
+    # 检查API密钥是否可用
+    if is_nil(google_maps_api_key) || google_maps_api_key == "" do
+      Logger.error("Google Maps API key is not configured")
+      Process.sleep(1000) # 给日志时间写入
+      System.halt(1) # 终止应用，因为没有API密钥应用无法正常工作
+    end
+    
     if connected?(socket) do
       Logger.debug("Socket connected")
       # 使用默认位置加载初始数据
@@ -54,7 +61,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
   end
 
   @impl true
-  def handle_event("update-location", %{"latitude" => lat, "longitude" => lng}, socket) do
+  def handle_event("update-location", %{"latitude" => lat, "longitude" => lng, "provider_distances" => distances} = params, socket) do
     Logger.debug("Updating location: lat=#{lat}, lng=#{lng}")
     latitude = String.to_float(lat)
     longitude = String.to_float(lng)
@@ -63,7 +70,17 @@ defmodule MyPhoenixAppWeb.ProviderLive do
     socket = assign(socket, :loading, true)
     
     # 获取新位置附近的提供商
-    providers = AgedCareProvider.list_nearby(latitude, longitude, 5) |> MyPhoenixApp.Repo.all()
+    providers = AgedCareProvider.list_nearby(latitude, longitude, 5) 
+                |> MyPhoenixApp.Repo.all()
+                |> Enum.map(fn provider ->
+                  # 从前端获取的距离数据中获取对应的距离
+                  distance = case distances do
+                    %{} -> Map.get(distances, Integer.to_string(provider.id), provider.distance)
+                    _ -> provider.distance
+                  end
+                  %{provider | distance: distance}
+                end)
+    
     Logger.debug("Found #{length(providers)} providers near location")
     
     # 如果有提供商，默认选择第一个
@@ -80,7 +97,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="w-full h-full flex flex-col">
+    <div class="w-full h-full flex flex-col" data-google-maps-api-key={@google_maps_api_key}>
       <div class="flex flex-col h-screen">
         <header class="py-3 flex flex-wrap justify-between items-center border-b px-3 shadow-sm bg-white" id="notification-header" phx-hook="NotificationHook">
           <div class="flex items-center w-full sm:w-auto justify-between sm:justify-start mb-2 sm:mb-0">
@@ -143,7 +160,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
           <div class="py-2 text-center w-full">
             <h1 class="text-xl font-semibold text-blue-800">Aged Care Providers Near Me</h1>
             <div class="relative mt-2 w-full px-2 max-w-xl mx-auto">
-              <div class="bg-gray-100 rounded-full flex items-center p-1">
+              <div class="bg-gray-100 rounded-full flex items-center p-1" phx-hook="LocationSearch" id="location-search-container">
                 <button class="ml-2">
                   <.icon name="hero-arrow-left" class="h-5 w-5 text-blue-600" />
                   <span class="ml-1">Back</span>
@@ -152,10 +169,10 @@ defmodule MyPhoenixAppWeb.ProviderLive do
                        placeholder="Type Your Location" 
                        class="flex-1 p-2 bg-transparent border-none focus:outline-none focus:ring-0 text-center"
                        id="location-input" />
-                <button class="bg-white p-2 rounded-full mr-1">
+                <button class="bg-white p-2 rounded-full mr-1" data-action="search">
                   <.icon name="hero-magnifying-glass" class="h-5 w-5 text-blue-600" />
                 </button>
-                <button class="bg-white p-2 rounded-full mr-1">
+                <button class="bg-white p-2 rounded-full mr-1" data-action="current-location">
                   <.icon name="hero-map-pin" class="h-5 w-5 text-blue-600" />
                 </button>
               </div>
@@ -172,11 +189,37 @@ defmodule MyPhoenixAppWeb.ProviderLive do
               <% end %>
               <!-- 地图容器 -->
               <div id="map" phx-hook="MapHook" 
+                   data-api-proxy-url="/api/google/maps"
                    data-providers={Jason.encode!(Enum.map(@providers, fn p -> 
-                     "#{p.id}|#{p.latitude}|#{p.longitude}|#{p.name}"
-                   end))}
-                   class="w-full h-[250px] md:h-[300px] rounded-lg"
-                   style="width: 100%; height: 250px;">
+                     if is_float(p.latitude) and is_float(p.longitude) do
+                       "#{p.id}|#{p.latitude}|#{p.longitude}|#{p.name}"
+                     else
+                       nil
+                     end
+                   end) |> Enum.filter(&(&1 != nil)))}
+                   class="w-full h-[300px] md:h-[400px] rounded-lg relative"
+                   style="width: 100%; height: 300px; min-height: 300px; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
+                <!-- 地图加载指示器 -->
+                <div id="map-loading-indicator" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
+                  <div class="text-center">
+                    <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p class="text-gray-700 font-medium">正在加载地图...</p>
+                    <p class="text-gray-500 text-sm mt-1">请稍候</p>
+                  </div>
+                </div>
+                <!-- 地图错误提示 (初始隐藏) -->
+                <div id="map-error" class="hidden absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-20">
+                  <div class="text-center p-4 max-w-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <h3 class="text-red-600 font-semibold text-lg mb-1">地图加载失败</h3>
+                    <p class="text-gray-700" id="map-error-message">无法加载地图，请刷新页面重试。</p>
+                    <button onclick="window.location.reload()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
+                      刷新页面
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -411,7 +454,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
                   </a>
                   <a href="#" class="bg-blue-100 hover:bg-blue-200 text-blue-600 p-1.5 rounded-full transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.259-.012 3.668-.069 4.948-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                     </svg>
                   </a>
                 </div>

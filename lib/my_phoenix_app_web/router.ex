@@ -27,6 +27,10 @@ defmodule MyPhoenixAppWeb.Router do
 
     # 通配符路径捕获所有Google Maps API请求
     get "/google/maps/*endpoint", GoogleMapsProxyController, :proxy
+    
+    # 提供商API接口
+    get "/providers/nearby", ApiController, :nearby_providers
+    get "/providers/:id", ApiController, :get_provider
   end
 
   # Other scopes may use custom stacks.

@@ -6,10 +6,12 @@ import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 import MapHook from "./hooks/map_hook"
 import NotificationHook from "./hooks/notification_hook"
+import LocationSearchHook from "./hooks/location_search_hook"
 
 let Hooks = {
   MapHook: MapHook,
-  NotificationHook: NotificationHook
+  NotificationHook: NotificationHook,
+  LocationSearch: LocationSearchHook
 };
 
 // 设置全局 Google Maps 回调

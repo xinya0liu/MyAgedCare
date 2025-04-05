@@ -19,26 +19,46 @@ defmodule MyPhoenixAppWeb.GoogleMapsProxyController do
       # 获取API密钥
       api_key = Application.get_env(:my_phoenix_app, :google_maps_api_key)
       
-      # 构建Google API URL
-      url = build_google_url(endpoint, params, api_key)
-      
-      # 发送请求到Google
-      case HTTPoison.get(url, [], [follow_redirect: true]) do
-        {:ok, response} ->
-          # 设置适当的内容类型
-          content_type = get_content_type(endpoint, response.headers)
-          
-          # 返回Google的响应
+      # 检查API密钥是否可用
+      if api_key && api_key != "" && api_key != "YOUR_GOOGLE_MAPS_API_KEY" do
+        # 构建Google API URL
+        url = build_google_url(endpoint, params, api_key)
+        Logger.debug("Proxying to Google Maps API: #{url}")
+        
+        # 发送请求到Google
+        case HTTPoison.get(url, [], [follow_redirect: true, timeout: 10000, recv_timeout: 10000]) do
+          {:ok, response} ->
+            # 设置适当的内容类型
+            content_type = get_content_type(endpoint, response.headers)
+            
+            # 返回Google的响应
+            conn
+            |> put_resp_content_type(content_type)
+            |> send_resp(response.status_code, response.body)
+            
+          {:error, error} ->
+            Logger.error("Error proxying Google Maps API request: #{inspect(error)}")
+            
+            conn
+            |> put_status(:internal_server_error)
+            |> json(%{error: "Failed to proxy request to Google Maps API", details: inspect(error)})
+        end
+      else
+        Logger.error("Google Maps API key is not configured correctly")
+        
+        # 为开发环境提供明确的错误信息
+        if Mix.env() == :dev do
           conn
-          |> put_resp_content_type(content_type)
-          |> send_resp(response.status_code, response.body)
-          
-        {:error, error} ->
-          Logger.error("Error proxying Google Maps API request: #{inspect(error)}")
-          
+          |> put_status(:bad_request)
+          |> json(%{
+            error: "Google Maps API key is not configured",
+            message: "Please set a valid GOOGLE_MAPS_API_KEY in your environment variables or .env file"
+          })
+        else
           conn
           |> put_status(:internal_server_error)
-          |> json(%{error: "Failed to proxy request to Google Maps API"})
+          |> json(%{error: "Server configuration error"})
+        end
       end
     else
       Logger.warning("Attempted to access unauthorized Google Maps API endpoint: #{endpoint}", %{endpoint: endpoint})

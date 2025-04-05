@@ -1,295 +1,154 @@
-// hooks/map_hook.js
-
+// map_hook.js - 完整版，包含自动请求地理位置功能
 const MapHook = {
   mounted() {
     console.log("MapHook mounted");
-    this.markers = [];
-    this.mapInitialized = false;
     
-    // 默认位置（布里斯班）
-    this.defaultLocation = { lat: -27.4698, lng: 153.0251 };
+    // 1. 创建一个内部容器，LiveView不会直接更新它
+    this.setupMapContainers();
     
-    // 立即准备地图容器
-    this._prepareMapContainer();
-    
-    // 简化：直接加载地图，不使用复杂的异步流程
-    this._directLoadMap();
-  },
-  
-  updated() {
-    console.log("MapHook updated");
-    
-    // 如果地图已初始化并且有新的提供商数据，更新标记
-    if (this.mapInitialized && this.el.dataset.providers) {
-      try {
-        const providers = JSON.parse(this.el.dataset.providers);
-        this._updateProviderMarkers(providers);
-      } catch (e) {
-        console.error("Error parsing providers data:", e);
-      }
-    }
-  },
-  
-  destroyed() {
-    console.log("MapHook destroyed");
-    
-    // 清理资源
-    if (this.map && window.google && window.google.maps) {
-      // 清理标记
-      if (this.markers) {
-        this.markers.forEach(marker => marker.setMap(null));
-      }
-      
-      // 清理用户标记
-      if (this.userMarker) {
-        this.userMarker.setMap(null);
-      }
-      
-      // 清理打开的信息窗口
-      if (this.openInfoWindow) {
-        this.openInfoWindow.close();
-      }
-    }
-  },
-  
-  // 准备地图容器 - 确保地图区域可见
-  _prepareMapContainer() {
-    console.log("Preparing map container");
-    
-    // 设置样式，确保容器始终可见
-    this.el.style.height = "500px";
-    this.el.style.width = "100%";
-    this.el.style.position = "relative";
-    this.el.style.backgroundColor = "#f0f0f0";
-    this.el.style.border = "1px solid #ddd";
-    this.el.style.borderRadius = "4px";
-    
-    // 创建加载和错误层
-    this._createLoadingLayer();
-    this._createErrorLayer();
-    
-    // 创建通知层
-    this._createNotificationLayer();
-  },
-  
-  // 创建加载层
-  _createLoadingLayer() {
-    const loadingLayer = document.createElement("div");
-    loadingLayer.id = "map-loading-layer";
-    loadingLayer.style.position = "absolute";
-    loadingLayer.style.top = "0";
-    loadingLayer.style.left = "0";
-    loadingLayer.style.width = "100%";
-    loadingLayer.style.height = "100%";
-    loadingLayer.style.backgroundColor = "rgba(255, 255, 255, 0.8)";
-    loadingLayer.style.display = "flex";
-    loadingLayer.style.justifyContent = "center";
-    loadingLayer.style.alignItems = "center";
-    loadingLayer.style.zIndex = "10";
-    
-    loadingLayer.innerHTML = `
-      <div style="text-align: center;">
-        <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; margin: 0 auto 10px; animation: spin 2s linear infinite;"></div>
-        <p style="margin: 0; color: #333; font-weight: bold;">加载地图中...</p>
-      </div>
-      <style>
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      </style>
-    `;
-    
-    this.el.appendChild(loadingLayer);
-  },
-  
-  // 创建错误层
-  _createErrorLayer() {
-    const errorLayer = document.createElement("div");
-    errorLayer.id = "map-error-layer";
-    errorLayer.style.position = "absolute";
-    errorLayer.style.top = "0";
-    errorLayer.style.left = "0";
-    errorLayer.style.width = "100%";
-    errorLayer.style.height = "100%";
-    errorLayer.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
-    errorLayer.style.display = "none";
-    errorLayer.style.justifyContent = "center";
-    errorLayer.style.alignItems = "center";
-    errorLayer.style.zIndex = "20";
-    
-    this.el.appendChild(errorLayer);
-  },
-  
-  // 创建通知层
-  _createNotificationLayer() {
-    const notificationLayer = document.createElement("div");
-    notificationLayer.id = "map-notification-layer";
-    notificationLayer.style.position = "absolute";
-    notificationLayer.style.top = "10px";
-    notificationLayer.style.left = "50%";
-    notificationLayer.style.transform = "translateX(-50%)";
-    notificationLayer.style.padding = "8px 16px";
-    notificationLayer.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-    notificationLayer.style.color = "white";
-    notificationLayer.style.borderRadius = "4px";
-    notificationLayer.style.display = "none";
-    notificationLayer.style.zIndex = "30";
-    
-    this.el.appendChild(notificationLayer);
-  },
-  
-  // 直接加载地图 - 简化版
-  _directLoadMap() {
-    console.log("Directly loading map");
-    
-    // 使用后端代理，不需要获取API密钥
-    // const apiKey = this.el.dataset.apiKey;
-    // console.log("API Key available:", !!apiKey);
-    
-    // 如果Google Maps已加载，直接创建地图
-    if (window.google && window.google.maps) {
-      console.log("Google Maps already loaded");
-      this._createMap();
+    // 2. 获取代理URL
+    const apiProxyUrl = this.el.getAttribute('data-api-proxy-url');
+    if (!apiProxyUrl) {
+      console.error("No Google Maps API proxy URL found");
+      this.hideLoadingIndicator();
       return;
     }
     
-    // 加载Google Maps API (通过代理)
+    // 3. 加载Google Maps API并初始化地图
+    this.loadGoogleMapsAPI(apiProxyUrl);
+  },
+  
+  // 创建稳定的内部地图容器
+  setupMapContainers() {
+    console.log("Setting up map containers");
+    
+    // 隐藏加载指示器
+    this.hideLoadingIndicator();
+    
+    // 保留对外部容器的引用
+    this.outerContainer = this.el;
+    
+    // 设置外部容器样式
+    this.outerContainer.style.position = "relative";
+    this.outerContainer.style.height = "400px";
+    this.outerContainer.style.width = "100%";
+    
+    // 如果已经有内部容器，不重新创建
+    if (this.outerContainer.querySelector("#inner-map-container")) {
+      console.log("Inner map container already exists");
+      this.innerContainer = this.outerContainer.querySelector("#inner-map-container");
+      return;
+    }
+    
+    // 创建内部容器作为稳定地图挂载点
+    this.innerContainer = document.createElement("div");
+    this.innerContainer.id = "inner-map-container";
+    this.innerContainer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    `;
+    
+    // 添加到外部容器
+    this.outerContainer.appendChild(this.innerContainer);
+    
+    console.log("Inner map container created");
+  },
+  
+  // 隐藏加载指示器
+  hideLoadingIndicator() {
+    const loadingIndicator = document.getElementById("map-loading-indicator");
+    if (loadingIndicator) {
+      loadingIndicator.style.display = "none";
+    }
+  },
+  
+  // 加载Google Maps API
+  loadGoogleMapsAPI(apiProxyUrl) {
+    // 如果已加载
+    if (window.google && window.google.maps) {
+      this.initMap();
+      return;
+    }
+    
+    // 如果正在加载中
+    if (window.googleMapsApiLoading) {
+      // 等待加载完成
+      const checkInterval = setInterval(() => {
+        if (window.google && window.google.maps) {
+          clearInterval(checkInterval);
+          this.initMap();
+        }
+      }, 100);
+      return;
+    }
+    
+    // 标记为加载中
+    window.googleMapsApiLoading = true;
+    
+    // 创建全局回调
+    const callbackName = "initMap_" + Math.random().toString(36).substring(2, 9);
+    window[callbackName] = () => {
+      window.googleMapsApiLoaded = true;
+      window.googleMapsApiLoading = false;
+      this.initMap();
+    };
+    
+    // 加载API
     const script = document.createElement("script");
-    // 使用我们的代理路径，而不是直接访问Google
-    script.src = `/api/google/maps/maps/api/js?libraries=places`;
+    script.src = `${apiProxyUrl}/maps/api/js?libraries=geometry&callback=${callbackName}`;
     script.async = true;
-    
-    script.onload = () => {
-      console.log("Google Maps API loaded");
-      this._createMap();
-    };
-    
-    script.onerror = (error) => {
-      console.error("Error loading Google Maps API:", error);
-      this._showError("无法加载Google地图API。请检查您的网络连接并刷新页面。");
-    };
-    
+    script.defer = true;
     document.head.appendChild(script);
     
-    // 设置超时
-    setTimeout(() => {
-      if (!this.mapInitialized) {
-        console.log("Map initialization timeout");
-        this._showError("地图加载超时。请刷新页面重试。");
-      }
-    }, 10000);
+    console.log("Google Maps API loading through proxy...");
   },
   
-  // 创建地图
-  _createMap() {
+  // 初始化地图
+  initMap() {
+    console.log("Initializing map on inner container");
+    
     try {
-      console.log("Creating map");
+      // 默认位置
+      const defaultLocation = { lat: -27.4698, lng: 153.0251 }; // Brisbane
       
-      // 确保只初始化一次
-      if (this.mapInitialized) {
-        console.log("Map already initialized");
-        return;
-      }
-      
-      // 检查Google Maps是否可用
-      if (!window.google || !window.google.maps) {
-        throw new Error("Google Maps API not available");
-      }
-      
-      // 创建地图实例
-      this.map = new google.maps.Map(this.el, {
-        center: this.defaultLocation,
+      // 创建地图
+      this.map = new google.maps.Map(this.innerContainer, {
+        center: defaultLocation,
         zoom: 12,
-        mapTypeId: google.maps.MapTypeId.ROADMAP,
-        fullscreenControl: true,
-        zoomControl: true
+        mapTypeId: google.maps.MapTypeId.ROADMAP
       });
       
-      // 地图加载完成事件
+      // 创建信息窗口
+      this.infoWindow = new google.maps.InfoWindow();
+      
+      // 一旦地图加载完成，加载提供商数据
       google.maps.event.addListenerOnce(this.map, 'idle', () => {
-        console.log("Map is idle and ready");
+        console.log("Map fully loaded");
+        this.loadProviderData();
         
-        // 隐藏加载层
-        this._hideLoading();
-        
-        // 创建用户位置标记
-        this._createUserLocationMarker(this.defaultLocation);
-        
-        // 加载提供商数据
-        this._loadProviderData();
-        
-        // 请求用户位置
-        this._requestUserLocation();
+        // 添加此代码以请求用户位置
+        setTimeout(() => {
+          this.requestUserLocation();
+        }, 1000);
       });
       
-      // 标记地图已初始化
-      this.mapInitialized = true;
-      
     } catch (error) {
-      console.error("Error creating map:", error);
-      this._showError(`创建地图时出错: ${error.message}`);
-    }
-  },
-  
-  // 加载提供商数据
-  _loadProviderData() {
-    try {
-      if (this.el.dataset.providers) {
-        const providers = JSON.parse(this.el.dataset.providers);
-        if (providers && providers.length > 0) {
-          console.log(`Loading ${providers.length} providers`);
-          this._updateProviderMarkers(providers);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading provider data:", error);
-      this._showNotification("加载提供商数据时出错");
-    }
-  },
-  
-  // 创建用户位置标记
-  _createUserLocationMarker(location) {
-    if (!this.mapInitialized || !this.map) return;
-    
-    console.log("Creating user location marker");
-    
-    try {
-      // 如果已存在，更新位置
-      if (this.userMarker) {
-        this.userMarker.setPosition(location);
-        return;
-      }
-      
-      // 创建新标记
-      this.userMarker = new google.maps.Marker({
-        position: location,
-        map: this.map,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          fillColor: "#4285F4",
-          fillOpacity: 1,
-          strokeColor: "#FFFFFF",
-          strokeWeight: 2,
-          scale: 8
-        },
-        title: "您的位置"
-      });
-    } catch (error) {
-      console.error("Error creating user marker:", error);
+      console.error("Error initializing map:", error);
     }
   },
   
   // 请求用户位置
-  _requestUserLocation() {
-    if (!this.mapInitialized || !navigator.geolocation) {
-      console.log("Geolocation not available");
-      this._showNotification("您的浏览器不支持位置服务，使用默认位置");
+  requestUserLocation() {
+    console.log("Requesting user location");
+    
+    if (!navigator.geolocation) {
+      console.log("Geolocation not supported");
       return;
     }
-    
-    console.log("Requesting user location");
-    this._showNotification("正在获取您的位置...");
     
     navigator.geolocation.getCurrentPosition(
       // 成功回调
@@ -302,86 +161,149 @@ const MapHook = {
         };
         
         // 更新地图
-        this.map.panTo(userLocation);
-        this._createUserLocationMarker(userLocation);
+        this.map.setCenter(userLocation);
         
-        // 获取附近提供商
-        this._fetchProviders(userLocation);
+        // 创建用户位置标记
+        this.createUserMarker(userLocation);
         
-        this._showNotification("已更新到您的当前位置");
+        // 通知服务器更新位置
+        this.updateLocationToServer(userLocation);
       },
       // 错误回调
       (error) => {
-        console.error("Geolocation error:", error);
-        
-        let message = "无法获取您的位置，使用默认位置";
-        if (error.code === 1) {
-          message = "位置访问被拒绝，使用默认位置";
-        }
-        
-        this._showNotification(message);
-        this._fetchProviders(this.defaultLocation);
+        console.log("Geolocation error:", error.code);
       },
-      // 选项
       {
-        enableHighAccuracy: true,
+        enableHighAccuracy: false,
         timeout: 5000,
         maximumAge: 0
       }
     );
   },
   
-  // 获取提供商
-  _fetchProviders(location) {
-    console.log("Fetching providers for location:", location);
+  // 创建用户位置标记
+  createUserMarker(location) {
+    // 如果已有标记，先移除
+    if (this.userMarker) {
+      this.userMarker.setMap(null);
+    }
+    
+    // 创建标记
+    this.userMarker = new google.maps.Marker({
+      position: location,
+      map: this.map,
+      title: "您的位置",
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        fillColor: "#4285F4",
+        fillOpacity: 1,
+        strokeColor: "#FFFFFF",
+        strokeWeight: 2,
+        scale: 8
+      }
+    });
+  },
+  
+  // 更新位置到服务器
+  updateLocationToServer(location) {
+    console.log("Updating location to server");
     
     try {
+      // 计算到每个提供商的距离
+      const providerDistances = {};
+      if (this.providersById) {
+        Object.entries(this.providersById).forEach(([id, data]) => {
+          const providerLocation = data.marker.getPosition();
+          const distance = google.maps.geometry.spherical.computeDistanceBetween(
+            new google.maps.LatLng(location.lat, location.lng),
+            providerLocation
+          );
+          providerDistances[id] = distance;
+        });
+      }
+      
       this.pushEvent("update-location", {
         latitude: location.lat.toString(),
-        longitude: location.lng.toString()
+        longitude: location.lng.toString(),
+        provider_distances: providerDistances
       });
     } catch (error) {
-      console.error("Error fetching providers:", error);
-      this._showNotification("获取提供商数据失败");
+      console.error("Error pushing event:", error);
     }
   },
   
-  // 更新提供商标记
-  _updateProviderMarkers(providers) {
-    if (!this.mapInitialized || !this.map) {
-      console.log("Map not initialized yet");
+  // 加载提供商数据
+  loadProviderData() {
+    try {
+      if (!this.outerContainer || !this.outerContainer.dataset.providers) {
+        console.warn("No provider data found");
+        return;
+      }
+      
+      const providersData = JSON.parse(this.outerContainer.dataset.providers);
+      
+      if (!providersData || !providersData.length) {
+        console.log("Empty provider data");
+        return;
+      }
+      
+      console.log(`Loading ${providersData.length} providers`);
+      
+      // 处理数据
+      const providers = providersData.map(item => {
+        const parts = item.split('|');
+        if (parts.length >= 4) {
+          return {
+            id: parts[0],
+            latitude: parseFloat(parts[1]),
+            longitude: parseFloat(parts[2]),
+            name: parts[3]
+          };
+        }
+        return null;
+      }).filter(p => p !== null);
+      
+      // 创建标记
+      this.createProviderMarkers(providers);
+      
+    } catch (error) {
+      console.error("Error loading provider data:", error);
+    }
+  },
+  
+  // 创建提供商标记
+  createProviderMarkers(providers) {
+    if (!this.map) {
+      console.warn("Map not available for creating markers");
       return;
     }
-    
-    console.log("Updating provider markers");
     
     // 清除现有标记
     if (this.markers) {
       this.markers.forEach(marker => marker.setMap(null));
     }
+    
     this.markers = [];
+    this.providersById = {};
     
-    // 如果没有提供商
-    if (!providers || providers.length === 0) {
-      this._showNotification("此区域没有找到提供商");
-      return;
-    }
+    console.log(`Creating ${providers.length} markers`);
     
-    // 创建边界对象
+    // 边界对象
     const bounds = new google.maps.LatLngBounds();
     
-    // 添加用户位置到边界
+    // 如果有用户位置，添加到边界
     if (this.userMarker) {
       bounds.extend(this.userMarker.getPosition());
     }
     
-    // 为每个提供商创建标记
+    // 创建标记
     providers.forEach(provider => {
       try {
-        // 获取位置数据
-        const lat = parseFloat(provider.latitude);
-        const lng = parseFloat(provider.longitude);
-        const position = { lat, lng };
+        // 创建点位置
+        const position = {
+          lat: provider.latitude,
+          lng: provider.longitude
+        };
         
         // 添加到边界
         bounds.extend(position);
@@ -390,123 +312,152 @@ const MapHook = {
         const marker = new google.maps.Marker({
           position: position,
           map: this.map,
-          title: provider.name,
-          animation: google.maps.Animation.DROP
+          title: provider.name
         });
         
-        // 创建信息窗口
-        const infoWindow = new google.maps.InfoWindow({
-          content: `
-            <div class="info-window">
-              <h3>${provider.name}</h3>
-              <p>${provider.address || ""}</p>
-              <button class="btn btn-sm btn-primary" onclick="window.currentMapHook.selectProvider('${provider.id}')">
-                查看详情
-              </button>
-            </div>
-          `
-        });
+        // 保存引用
+        this.markers.push(marker);
+        this.providersById = this.providersById || {};
+        this.providersById[provider.id] = { marker, provider };
+        
+        // 创建信息窗口内容
+        const infoContent = `
+          <div style="padding: 10px; max-width: 250px; text-align: center;">
+            <h3 style="margin: 0 0 8px; font-size: 16px; cursor: pointer; color: #4285F4;"
+                onclick="document.dispatchEvent(new CustomEvent('select-provider', {detail: {id: '${provider.id}'}}))">
+              ${provider.name}
+            </h3>
+            <img src="/images/provider_${provider.id}.jpg" 
+                 style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px;"
+                 onerror="this.src='/images/aged-care-default.jpg'" />
+          </div>
+        `;
         
         // 添加点击事件
         marker.addListener("click", () => {
-          // 关闭已打开的信息窗口
-          if (this.openInfoWindow) {
-            this.openInfoWindow.close();
+          if (this.infoWindow) {
+            this.infoWindow.close();
           }
           
-          // 打开新窗口
-          infoWindow.open(this.map, marker);
-          this.openInfoWindow = infoWindow;
+          this.infoWindow.setContent(infoContent);
+          this.infoWindow.open(this.map, marker);
         });
         
-        // 保存标记
-        this.markers.push(marker);
-        
       } catch (error) {
-        console.error("Error creating marker:", error);
+        console.error(`Error creating marker for provider ${provider.id}:`, error);
       }
     });
     
-    // 调整地图以显示所有标记
+    // 调整地图视图
     if (!bounds.isEmpty() && this.markers.length > 0) {
       this.map.fitBounds(bounds);
-      
-      // 避免过度缩放
-      google.maps.event.addListenerOnce(this.map, 'idle', () => {
-        if (this.map.getZoom() > 15) {
-          this.map.setZoom(15);
-        }
-      });
     }
     
-    console.log(`Created ${this.markers.length} markers`);
+    // 添加自定义事件监听器
+    document.addEventListener('select-provider', (e) => {
+      this.selectProvider(e.detail.id);
+    });
   },
   
   // 选择提供商
   selectProvider(id) {
-    console.log("Selected provider:", id);
+    console.log("Provider selected:", id);
     
+    // 关闭信息窗口
+    if (this.infoWindow) {
+      this.infoWindow.close();
+    }
+    
+    // 高亮标记
+    if (this.providersById && this.providersById[id] && this.providersById[id].marker) {
+      const marker = this.providersById[id].marker;
+      
+      // 添加弹跳动画
+      marker.setAnimation(google.maps.Animation.BOUNCE);
+      setTimeout(() => {
+        marker.setAnimation(null);
+      }, 1500);
+    }
+    
+    // 触发LiveView事件
     try {
       this.pushEvent("select-provider", { id: id });
     } catch (error) {
       console.error("Error selecting provider:", error);
-      this._showNotification("选择提供商时出错");
     }
   },
   
-  // 隐藏加载层
-  _hideLoading() {
-    const loadingLayer = document.getElementById("map-loading-layer");
-    if (loadingLayer) {
-      loadingLayer.style.display = "none";
-    }
-  },
-  
-  // 显示错误
-  _showError(message) {
-    console.error("Map error:", message);
+  updated() {
+    console.log("MapHook updated");
     
-    // 隐藏加载层
-    this._hideLoading();
+    // 隐藏加载指示器
+    this.hideLoadingIndicator();
     
-    // 显示错误层
-    const errorLayer = document.getElementById("map-error-layer");
-    if (errorLayer) {
-      errorLayer.style.display = "flex";
-      errorLayer.innerHTML = `
-        <div style="text-align: center; max-width: 80%;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <h3 style="color: #e74c3c; margin: 10px 0;">地图加载错误</h3>
-          <p style="margin-bottom: 20px;">${message}</p>
-          <button onclick="window.location.reload()" style="background-color: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-            刷新页面
-          </button>
-        </div>
-      `;
-    }
-  },
-  
-  // 显示通知
-  _showNotification(message) {
-    const notification = document.getElementById("map-notification-layer");
-    if (notification) {
-      notification.textContent = message;
-      notification.style.display = "block";
+    // 确保容器设置
+    this.outerContainer = this.el;
+    
+    // 如果内部容器不在DOM中，重新添加它
+    if (!document.body.contains(this.innerContainer)) {
+      console.log("Inner container lost, recreating");
+      this.setupMapContainers();
       
-      // 5秒后隐藏
-      setTimeout(() => {
-        notification.style.display = "none";
-      }, 5000);
+      // 如果地图已存在，重新加载
+      if (this.map) {
+        // 重新设置地图容器
+        const center = this.map.getCenter();
+        const zoom = this.map.getZoom();
+        
+        // 使用短暂延迟确保DOM更新完成
+        setTimeout(() => {
+          // 重新创建地图
+          this.map = new google.maps.Map(this.innerContainer, {
+            center: center,
+            zoom: zoom,
+            mapTypeId: google.maps.MapTypeId.ROADMAP
+          });
+          
+          // 重新加载提供商数据
+          this.loadProviderData();
+          
+          // 如果有用户位置，重新创建用户标记
+          if (this.userLocation) {
+            this.createUserMarker(this.userLocation);
+          }
+        }, 10);
+      }
+    } else if (this.map) {
+      // 触发地图resize事件
+      google.maps.event.trigger(this.map, 'resize');
+      
+      // 重新加载提供商数据
+      this.loadProviderData();
+    }
+  },
+  
+  // 清理资源
+  destroyed() {
+    console.log("MapHook destroyed");
+    
+    // 移除事件监听器
+    document.removeEventListener('select-provider', this.selectProvider);
+    
+    // 清理标记
+    if (this.markers) {
+      this.markers.forEach(marker => marker.setMap(null));
+      this.markers = [];
+    }
+    
+    // 清理用户位置标记
+    if (this.userMarker) {
+      this.userMarker.setMap(null);
+      this.userMarker = null;
+    }
+    
+    // 清理信息窗口
+    if (this.infoWindow) {
+      this.infoWindow.close();
     }
   }
 };
 
-// 全局引用，用于标记点击事件
-window.currentMapHook = MapHook;
-
-// 导出 Hook
 export default MapHook;
