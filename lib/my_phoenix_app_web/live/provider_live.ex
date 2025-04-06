@@ -241,7 +241,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
                   <.spinner />
                 </div>
               <% end %>
-              <!-- 地图容器 -->
+              <!-- map container-->
               <div id="map" phx-hook="MapHook" 
                    data-api-proxy-url="/api/google/maps"
                    data-providers={Jason.encode!(Enum.map(@providers, fn p -> 
@@ -253,7 +253,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
                    end) |> Enum.filter(&(&1 != nil)))}
                    class="w-full h-[300px] md:h-[400px] rounded-lg relative"
                    style="width: 100%; height: 300px; min-height: 300px; position: relative; overflow: hidden; border: 1px solid #ddd; border-radius: 0.5rem; background-color: #f8f9fa;">
-                <!-- 地图加载指示器 -->
+                <!-- map loading indicator -->
                 <div id="map-loading-indicator" class="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
                   <div class="text-center">
                     <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
@@ -261,16 +261,16 @@ defmodule MyPhoenixAppWeb.ProviderLive do
                     <p class="text-gray-500 text-sm mt-1">请稍候</p>
                   </div>
                 </div>
-                <!-- 地图错误提示 (初始隐藏) -->
+                <!-- map eoor notification -->
                 <div id="map-error" class="hidden absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-20">
                   <div class="text-center p-4 max-w-md">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <h3 class="text-red-600 font-semibold text-lg mb-1">地图加载失败</h3>
-                    <p class="text-gray-700" id="map-error-message">无法加载地图，请刷新页面重试。</p>
+                    <h3 class="text-red-600 font-semibold text-lg mb-1">map loading failed</h3>
+                    <p class="text-gray-700" id="map-error-message">cannot load map, please refresh</p>
                     <button onclick="window.location.reload()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">
-                      刷新页面
+                      refresh page
                     </button>
                   </div>
                 </div>
