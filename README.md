@@ -2,10 +2,11 @@
 
 MyAgedCare is a Phoenix-based application designed to help users find and manage aged care service providers. Users can search for nearby aged care service providers based on location, get detailed information, and schedule visits.
 
+🔗 Live Demo: https://my-phoenix-app.fly.dev/providers
+
 ## Features
 
 - Map-based service provider search
-- Distance filtering functionality
 - Detailed provider information including service types, facilities, and contact information
 - Responsive design that adapts to various device sizes
 - User notification system
@@ -29,43 +30,64 @@ MyAgedCare is a Phoenix-based application designed to help users find and manage
 
 ### Setup Steps
 
-1. Clone the repository:
+1. **Clone the repository**
 
    ```bash
    git clone https://github.com/xinya0liu/MyAgedCare.git
+   ```
+
+2. **Navigate to project directory**
+
+   ```bash
    cd MyAgedCare
    ```
 
-2. Install dependencies:
+3. **Copy setup database script**
+
+   ```bash
+   cp ../setup_db.exs .
+   ```
+
+4. **Install dependencies**
 
    ```bash
    mix deps.get
-   cd assets && npm install && cd ..
    ```
 
-3. Configure the database:
+5. **Create database**
 
    ```bash
-   mix ecto.setup
+   mix ecto.create
    ```
 
-4. Set up environment variables:
-   Create a `.env` file and set necessary environment variables, such as the Google Maps API key:
-
-   ```
-   GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-   ```
-
-5. Start the Phoenix server:
+6. **Run database migrations**
 
    ```bash
-   GOOGLE_MAPS_API_KEY=your_google_maps_api_key mix phx.server
+   mix ecto.migrate
    ```
 
-6. Visit [`localhost:4000`](http://localhost:4000) to view the application.
+7. **Load initial data**
 
+   ```bash
+   mix run setup_db.exs
+   ```
 
- ## Contributing
+   ✅ The script will:
+   - Clear existing data
+   - Insert 8 aged care provider records as seeders
+   - Display the number of records (8) in the database
+
+8. **Start Phoenix server**
+
+   ```bash
+   mix phx.server
+   ```
+
+9. **Access the application**
+
+   Open your browser and visit [http://localhost:4000](http://localhost:4000)
+
+## Contributing
 
 Contributions via issues and pull requests are welcome.
 
@@ -73,10 +95,10 @@ Contributions via issues and pull requests are welcome.
 
 This project is licensed under the MIT License.
 
-## Learn more
+## Learn More
 
-- Official website: https://www.phoenixframework.org/
-- Guides: https://hexdocs.pm/phoenix/overview.html
-- Docs: https://hexdocs.pm/phoenix
-- Forum: https://elixirforum.com/c/phoenix-forum
-- Source: https://github.com/phoenixframework/phoenix
+- [Official website](https://www.phoenixframework.org/)
+- [Guides](https://hexdocs.pm/phoenix/overview.html)
+- [Docs](https://hexdocs.pm/phoenix)
+- [Forum](https://elixirforum.com/c/phoenix-forum)
+- [Source](https://github.com/phoenixframework/phoenix)
