@@ -60,7 +60,7 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-# Google Maps API 配置 - 从环境变量获取密钥和签名密钥
+# Google Maps API set up - get key from env
 config :my_phoenix_app,
   google_maps_api_key: System.get_env("GOOGLE_MAPS_API_KEY") || "YOUR_GOOGLE_MAPS_API_KEY",
   google_maps_api_secret: System.get_env("GOOGLE_MAPS_API_SECRET")
