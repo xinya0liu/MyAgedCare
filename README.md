@@ -64,58 +64,42 @@ MyAgedCare is a Phoenix-based application designed to help users find and manage
 
 6. Visit [`localhost:4000`](http://localhost:4000) to view the application.
 
-## Contributing
+## Google Maps API Key Security Configuration
+
+To ensure the security of Google Maps API key, this application implements the following best practices:
+
+Key Setup
+	1.	Environment Variable Configuration: Avoid hardcoding the API key in your code; instead, use environment variables:
+    export GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+    
+   2.	API Key Restrictions: Configure restrictions for your API key in the Google Cloud Console: ￼
+	•	Application Restrictions: Limit usage to specific platforms (e.g., HTTP referrers for websites).
+	•	API Restrictions: Restrict the key to specific APIs (e.g., only enable Maps JavaScript API). ￼
+	•	Quota Limits: Set usage quotas to prevent unexpected overages. 
+
+The application incorporates the following security measures:
+	1.	Backend Proxying: All Google Maps API requests are routed through a backend proxy to prevent exposing the API key to clients.
+	2.	Referrer Validation: Ensures requests originate from authorized domains.
+	3.	Rate Limiting: Controls the frequency of API calls to prevent abuse.
+	4.	URL Signing: Supports signature validation for API requests.
+	5.	Request Filtering: Allows only specific types of API requests.
+	6.	Error Handling: Conceals sensitive error information in production environments.
+
+Production Environment Setup
+
+When deploying to production:
+	1.	Update Domain List: Modify the valid_referer? function to include your production domain(s).
+	2.	Enforce HTTPS: Ensure all API communications occur over secure HTTPS connections.
+	3.	Monitor Usage: Regularly review API usage in the Google Cloud Console to detect anomalies.
+	4.	Rotate API Keys: Periodically regenerate API keys, especially if compromise is suspected.
+
+ ## Contributing
 
 Contributions via issues and pull requests are welcome.
 
 ## License
 
 This project is licensed under the MIT License.
-
-## Google Maps API 密钥安全配置
-
-为确保你的 Google Maps API 密钥安全，本应用采用以下安全实践：
-
-### 密钥设置
-
-1. **环境变量配置**：不要在代码中硬编码 API 密钥，而是使用环境变量：
-
-   ```bash
-   export GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-   ```
-
-2. **API 密钥限制**：在 Google Cloud Console 中设置 API 密钥的限制：
-
-   - 添加 HTTP 引用站点限制 (只允许你的网站域名)
-   - 限制 API 调用范围 (只启用必要的 Maps API)
-   - 设置配额限制，防止超额使用
-
-3. **签名密钥**（适用于高级用户）：使用客户端密钥对 URL 进行签名：
-   ```bash
-   export GOOGLE_MAPS_API_SECRET=your_signing_secret
-   ```
-
-### 安全措施
-
-本应用中已实现的安全措施：
-
-1. **后端代理**：所有 Google Maps API 请求通过后端代理，API 密钥永不暴露于客户端
-2. **引用站点验证**：验证请求来源是否为允许的域名
-3. **速率限制**：限制 API 调用频率，防止滥用
-4. **URL 签名**：支持对 JavaScript API 请求进行签名验证
-5. **请求过滤**：只允许特定类型的 API 请求
-6. **错误处理**：生产环境中隐藏敏感错误信息
-
-### 生产环境设置
-
-在生产环境中部署应用时，确保：
-
-1. 更新 `valid_referer?` 函数中的域名列表，使其匹配你的实际生产域名
-2. 启用 HTTPS 以确保 API 密钥在传输过程中的安全
-3. 定期监控 Google Cloud Console 中的 API 使用情况，检测异常活动
-4. 定期轮换 API 密钥，特别是在可能泄露的情况下
-
-通过以上安全措施，你的 Google Maps API 密钥将得到有效保护，不会被滥用或导致意外账单费用。
 
 ## Learn more
 
