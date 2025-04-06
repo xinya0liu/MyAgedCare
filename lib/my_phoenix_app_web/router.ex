@@ -21,14 +21,14 @@ defmodule MyPhoenixAppWeb.Router do
     live "/providers", ProviderLive, :index
   end
 
-  # Google Maps API代理路由
+  # Google Maps API proxy routes
   scope "/api", MyPhoenixAppWeb do
     pipe_through :api
 
-    # 通配符路径捕获所有Google Maps API请求
+    # Wildcard path to capture all Google Maps API requests
     get "/google/maps/*endpoint", GoogleMapsProxyController, :proxy
     
-    # 提供商API接口
+    # Provider API interface
     get "/providers/nearby", ApiController, :nearby_providers
     get "/providers/:id", ApiController, :get_provider
   end

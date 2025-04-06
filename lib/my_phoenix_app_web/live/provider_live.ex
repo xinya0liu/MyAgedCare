@@ -7,13 +7,13 @@ defmodule MyPhoenixAppWeb.ProviderLive do
   def mount(_params, _session, socket) do
     Logger.debug("Mounting ProviderLive")
     
-    # 获取 Google Maps API 密钥
+    # Get Google Maps API key
     google_maps_api_key = Application.get_env(:my_phoenix_app, :google_maps_api_key)
     Logger.debug("Google Maps API key from config: #{inspect(google_maps_api_key)}")
     
     if connected?(socket) do
       Logger.debug("Socket connected")
-      # 使用默认位置加载初始数据
+      # Load initial data with default location
       default_location = %{latitude: -27.695, longitude: 153.222} # Brisbane
       providers = AgedCareProvider.list_nearby(
         default_location.latitude,
@@ -23,7 +23,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
       
       Logger.debug("Found #{length(providers)} providers near default location")
       
-      # 默认选择第一个提供商
+      # Default select first provider
       default_provider = List.first(providers)
 
       {:ok,
@@ -32,6 +32,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
        |> assign(:selected_provider, default_provider)
        |> assign(:loading, false)
        |> assign(:current_location, default_location)
+       |> assign(:google_maps_api_key, google_maps_api_key)
        |> assign(:api_key_valid, true)
        |> assign(:has_unread_notification, true)}
     else
@@ -42,6 +43,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
        |> assign(:selected_provider, nil)
        |> assign(:loading, true)
        |> assign(:current_location, nil)
+       |> assign(:google_maps_api_key, google_maps_api_key)
        |> assign(:api_key_valid, true)
        |> assign(:has_unread_notification, true)}
     end
@@ -58,7 +60,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
   def handle_event("update-location", params, socket) do
     Logger.debug("Received update-location event: #{inspect(params)}")
     
-    # 提取参数
+    # Extract parameters
     {latitude, longitude, distances} = case params do
       %{"latitude" => lat, "longitude" => lng, "provider_distances" => distances} ->
         Logger.debug("Received provider_distances: #{inspect(distances)}")
@@ -80,16 +82,16 @@ defmodule MyPhoenixAppWeb.ProviderLive do
       Logger.debug("Updating location: lat=#{latitude}, lng=#{longitude}")
       Logger.debug("Received distances: #{inspect(distances)}")
       
-      # 先设置加载状态
+      # First set loading state
       socket = assign(socket, :loading, true)
       
-      # 获取新位置附近的提供商
+      # Get providers near the new location
       providers = 
         try do
           AgedCareProvider.list_nearby(latitude, longitude, 5) 
           |> MyPhoenixApp.Repo.all()
           |> Enum.map(fn provider ->
-            # 从前端获取的距离数据中获取对应的距离
+            # Get corresponding distance from frontend distance data
             distance = case get_provider_distance(distances, provider.id) do
               {:ok, dist} -> 
                 Logger.debug("Setting distance for provider #{provider.id} to #{dist}m")
@@ -110,7 +112,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
       
       Logger.debug("Found #{length(providers)} providers near location")
       
-      # 如果有提供商，默认选择第一个
+      # If there are providers, select the first one by default
       default_provider = if length(providers) > 0, do: List.first(providers), else: nil
       
       {:noreply,
@@ -122,7 +124,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
     end
   end
   
-  # 解析浮点数，处理错误情况
+  # Parse float, handle error cases
   defp parse_float(value) when is_binary(value) do
     case Float.parse(value) do
       {float, _} -> float
@@ -134,9 +136,9 @@ defmodule MyPhoenixAppWeb.ProviderLive do
   defp parse_float(value) when is_integer(value), do: value / 1
   defp parse_float(_), do: nil
   
-  # 获取提供商距离
+  # Get provider distance
   defp get_provider_distance(distances, provider_id) do
-    # 尝试不同的键格式
+    # Try different key formats
     provider_key = to_string(provider_id)
     
     Logger.debug("Looking for distance with key '#{provider_key}' in distances map")
@@ -167,7 +169,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div class="w-full h-full flex flex-col">
+    <div class="w-full h-full flex flex-col" data-google-maps-api-key={@google_maps_api_key}>
       <div class="flex flex-col h-screen">
         <header class="py-3 flex flex-wrap justify-between items-center border-b px-3 shadow-sm bg-white" id="notification-header" phx-hook="NotificationHook">
           <div class="flex items-center w-full sm:w-auto justify-between sm:justify-start mb-2 sm:mb-0">
@@ -609,7 +611,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
       5
     ) |> MyPhoenixApp.Repo.all()
     
-    # 默认选择第一个提供商
+    # Default select first provider
     default_provider = if length(providers) > 0, do: List.first(providers), else: nil
     
     {:noreply, 
@@ -627,7 +629,7 @@ defmodule MyPhoenixAppWeb.ProviderLive do
      |> push_event("toggle-notification", %{})}
   end
 
-  # 格式化距离显示
+  # Format distance display
   defp format_distance(nil), do: "-- m"
   defp format_distance(0), do: "-- m"
   defp format_distance(distance) when distance < 1, do: "< 1 m" 

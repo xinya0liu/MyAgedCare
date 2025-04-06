@@ -83,3 +83,7 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Set Google Maps API key for development
+config :my_phoenix_app,
+  google_maps_api_key: "AIzaSyBnxXKSQM4_-6PFtJXlgUg_0xSlWBmGMrQ"  # This is a temporary API key for testing

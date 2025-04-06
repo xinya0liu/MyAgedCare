@@ -2,20 +2,20 @@
 
 echo "Testing environment variables..."
 
-# 加载.env文件中的环境变量
+# Load environment variables from .env file
 if [ -f .env ]; then
-  set -a  # 自动导出所有变量
+  set -a  # Auto-export all variables
   source .env
-  set +a  # 停止自动导出
+  set +a  # Stop auto-export
   echo "Loaded variables from .env file"
 else
   echo "Warning: .env file not found!"
 fi
 
-# 显示Google Maps API密钥
+# Display Google Maps API key
 echo "GOOGLE_MAPS_API_KEY: $GOOGLE_MAPS_API_KEY"
 
-# 使用elixir命令检查Phoenix配置
+# Use elixir command to check Phoenix configuration
 echo "Checking Phoenix configuration..."
 cd $(dirname $0) && elixir -e '
   IO.puts("Application config:")

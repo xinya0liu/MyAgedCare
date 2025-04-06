@@ -4,12 +4,12 @@ const NotificationHook = {
   mounted() {
     console.log("NotificationHook mounted");
     
-    // 监听从服务器发送的toggle-notification事件
+    // Listen for toggle-notification events from server
     this.handleEvent("toggle-notification", () => {
       this.toggleNotification();
     });
     
-    // 添加点击外部关闭下拉框的监听
+    // Add click outside listener to close dropdown
     document.addEventListener("click", (e) => {
       const notificationBtn = document.getElementById("notification-btn");
       const notificationDropdown = document.getElementById("notification-dropdown");
@@ -22,7 +22,7 @@ const NotificationHook = {
     });
   },
   
-  // 切换通知下拉框显示/隐藏
+  // Toggle notification dropdown show/hide
   toggleNotification() {
     const dropdown = document.getElementById("notification-dropdown");
     if (dropdown) {
