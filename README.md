@@ -64,34 +64,6 @@ MyAgedCare is a Phoenix-based application designed to help users find and manage
 
 6. Visit [`localhost:4000`](http://localhost:4000) to view the application.
 
-## Google Maps API Key Security Configuration
-
-To ensure the security of Google Maps API key, this application implements the following best practices:
-
-Key Setup
-	1.	Environment Variable Configuration: Avoid hardcoding the API key in your code; instead, use environment variables:
-    export GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-    
-   2.	API Key Restrictions: Configure restrictions for your API key in the Google Cloud Console: ￼
-	•	Application Restrictions: Limit usage to specific platforms (e.g., HTTP referrers for websites).
-	•	API Restrictions: Restrict the key to specific APIs (e.g., only enable Maps JavaScript API). ￼
-	•	Quota Limits: Set usage quotas to prevent unexpected overages. 
-
-The application incorporates the following security measures:
-	1.	Backend Proxying: All Google Maps API requests are routed through a backend proxy to prevent exposing the API key to clients.
-	2.	Referrer Validation: Ensures requests originate from authorized domains.
-	3.	Rate Limiting: Controls the frequency of API calls to prevent abuse.
-	4.	URL Signing: Supports signature validation for API requests.
-	5.	Request Filtering: Allows only specific types of API requests.
-	6.	Error Handling: Conceals sensitive error information in production environments.
-
-Production Environment Setup
-
-When deploying to production:
-	1.	Update Domain List: Modify the valid_referer? function to include your production domain(s).
-	2.	Enforce HTTPS: Ensure all API communications occur over secure HTTPS connections.
-	3.	Monitor Usage: Regularly review API usage in the Google Cloud Console to detect anomalies.
-	4.	Rotate API Keys: Periodically regenerate API keys, especially if compromise is suspected.
 
  ## Contributing
 
