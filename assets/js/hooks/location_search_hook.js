@@ -1,15 +1,15 @@
-// location_search_hook.js - 地址搜索钩子
+// location_search_hook.js - Address search hook
 const LocationSearchHook = {
   mounted() {
-    // 获取DOM元素
+    // Get DOM elements
     this.input = document.getElementById("location-input");
     this.searchBtn = this.el.querySelector('[data-action="search"]');
     this.locationBtn = this.el.querySelector('[data-action="current-location"]');
     
-    // 确保有输入框
+    // Ensure input field exists
     if (!this.input) return;
     
-    // 绑定事件处理
+    // Bind event handlers
     if (this.searchBtn) {
       this.searchBtn.addEventListener("click", () => this.searchLocation());
     }
@@ -22,38 +22,38 @@ const LocationSearchHook = {
       if (e.key === "Enter") this.searchLocation();
     });
     
-    // 初始化地址自动完成
+    // Initialize address autocomplete
     this.initAutocomplete();
   },
   
-  // 初始化Google地址自动完成
+  // Initialize Google address autocomplete
   initAutocomplete() {
-    // 检查Google Maps API是否已加载
+    // Check if Google Maps API is loaded
     const checkGoogleMapsLoaded = () => {
       if (window.google && window.google.maps && window.google.maps.places) {
-        // 创建自动完成
+        // Create autocomplete
         this.autocomplete = new google.maps.places.Autocomplete(this.input, {
           types: ['geocode'],
           fields: ['formatted_address', 'geometry']
         });
         
-        // 处理地址选择
+        // Handle address selection
         this.autocomplete.addListener('place_changed', () => {
           const place = this.autocomplete.getPlace();
           
           if (!place.geometry || !place.geometry.location) {
-            this.showNotification("找不到该地址，请尝试更精确的搜索");
+            this.showNotification("Cannot find this address, please try a more specific search");
             return;
           }
           
-          // 获取经纬度并更新地图
+          // Get coordinates and update map
           const lat = place.geometry.location.lat();
           const lng = place.geometry.location.lng();
           this.input.value = place.formatted_address;
           this.updateMap(lat, lng);
         });
       } else {
-        // API尚未加载，继续等待
+        // API not yet loaded, continue waiting
         setTimeout(checkGoogleMapsLoaded, 500);
       }
     };
@@ -61,22 +61,22 @@ const LocationSearchHook = {
     checkGoogleMapsLoaded();
   },
   
-  // 搜索位置
+  // Search location
   searchLocation() {
     const address = this.input.value.trim();
     if (!address) {
-      this.showNotification("请输入位置");
+      this.showNotification("Please enter a location");
       return;
     }
     
-    this.showNotification(`正在搜索: ${address}`);
+    this.showNotification(`Searching: ${address}`);
     this.geocodeAddress(address);
   },
   
-  // 地址转坐标
+  // Geocode address to coordinates
   geocodeAddress(address) {
     if (!window.google || !window.google.maps) {
-      this.showNotification("地图服务尚未加载");
+      this.showNotification("Map service is not loaded yet");
       return;
     }
     
@@ -87,49 +87,49 @@ const LocationSearchHook = {
         const lat = location.lat();
         const lng = location.lng();
         
-        // 更新输入框并更新地图
+        // Update input field and map
         this.input.value = results[0].formatted_address;
         this.updateMap(lat, lng);
       } else {
-        this.showNotification(`无法找到位置: ${address}`);
+        this.showNotification(`Unable to find location: ${address}`);
       }
     });
   },
   
-  // 获取当前位置
+  // Get current location
   getCurrentLocation() {
     if (!navigator.geolocation) {
-      this.showNotification("您的浏览器不支持位置服务");
+      this.showNotification("Your browser does not support location services");
       return;
     }
     
-    this.showNotification("正在获取您的位置...");
+    this.showNotification("Getting your location...");
     
     navigator.geolocation.getCurrentPosition(
-      // 成功回调
+      // Success callback
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         
-        // 反向解析地址
+        // Reverse geocode address
         this.reverseGeocode(lat, lng);
         this.updateMap(lat, lng);
       },
-      // 错误回调
+      // Error callback
       (error) => {
         let message;
         switch(error.code) {
           case error.PERMISSION_DENIED:
-            message = "位置访问被拒绝，请授权浏览器访问您的位置";
+            message = "Location access denied, please authorize your browser to access your location";
             break;
           case error.POSITION_UNAVAILABLE:
-            message = "位置信息不可用";
+            message = "Location information is unavailable";
             break;
           case error.TIMEOUT:
-            message = "获取位置超时";
+            message = "Location request timed out";
             break;
           default:
-            message = "无法位置";
+            message = "Unable to get location";
         }
         
         this.showNotification(message);
@@ -138,7 +138,7 @@ const LocationSearchHook = {
     );
   },
   
-  // 坐标转地址
+  // Reverse geocode coordinates to address
   reverseGeocode(lat, lng) {
     if (!window.google || !window.google.maps) return;
     
@@ -155,11 +155,11 @@ const LocationSearchHook = {
     );
   },
   
-  // 更新地图
+  // Update map
   updateMap(lat, lng) {
-    this.showNotification("正在搜索附近提供商...");
+    this.showNotification("Searching for nearby providers...");
     
-    // 使用MapHook或发送事件
+    // Use MapHook or send event
     if (window.currentMapHook && window.currentMapHook._fetchNearbyProviders) {
       window.currentMapHook._fetchNearbyProviders({ lat, lng });
     } else {
@@ -170,18 +170,18 @@ const LocationSearchHook = {
     }
   },
   
-  // 显示通知
+  // Show notification
   showNotification(message) {
-    // 通过MapHook显示通知
+    // Display notification through MapHook
     if (window.currentMapHook && window.currentMapHook._showNotification) {
       window.currentMapHook._showNotification(message);
       return;
     }
     
-    // 简易通知
-    console.log(`通知: ${message}`);
+    // Simple notification
+    console.log(`Notification: ${message}`);
     
-    // 创建通知元素
+    // Create notification element
     const notification = document.createElement("div");
     notification.style.cssText = `
       position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
@@ -192,7 +192,7 @@ const LocationSearchHook = {
     notification.textContent = message;
     document.body.appendChild(notification);
     
-    // 自动隐藏
+    // Auto hide
     setTimeout(() => {
       notification.remove();
     }, 3000);

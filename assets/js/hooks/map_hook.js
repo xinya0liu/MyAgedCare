@@ -1,12 +1,12 @@
-// map_hook.js - 完整版，包含自动请求地理位置功能
+// map_hook.js - Complete version, including automatic geolocation request functionality
 const MapHook = {
   mounted() {
     console.log("MapHook mounted");
 
-    // 1. 创建一个内部容器，LiveView不会直接更新它
+    // 1. Create an internal container that LiveView won't update directly
     this.setupMapContainers();
 
-    // 2. 获取代理URL
+    // 2. Get proxy URL
     const apiProxyUrl = this.el.getAttribute('data-api-proxy-url');
     if (!apiProxyUrl) {
       console.error("No Google Maps API proxy URL found");
@@ -14,33 +14,33 @@ const MapHook = {
       return;
     }
 
-    // 3. 加载Google Maps API并初始化地图
+    // 3. Load Google Maps API and initialize map
     this.loadGoogleMapsAPI(apiProxyUrl);
   },
 
-  // 创建稳定的内部地图容器
+  // Create stable internal map container
   setupMapContainers() {
     console.log("Setting up map containers");
 
-    // 隐藏加载指示器
+    // Hide loading indicator
     this.hideLoadingIndicator();
 
-    // 保留对外部容器的引用
+    // Retain reference to outer container
     this.outerContainer = this.el;
 
-    // 设置外部容器样式
+    // Set outer container style
     this.outerContainer.style.position = "relative";
     this.outerContainer.style.height = "400px";
     this.outerContainer.style.width = "100%";
 
-    // 如果已经有内部容器，不重新创建
+    // If internal container already exists, don't recreate
     if (this.outerContainer.querySelector("#inner-map-container")) {
       console.log("Inner map container already exists");
       this.innerContainer = this.outerContainer.querySelector("#inner-map-container");
       return;
     }
 
-    // 创建内部容器作为稳定地图挂载点
+    // Create internal container as stable map mounting point
     this.innerContainer = document.createElement("div");
     this.innerContainer.id = "inner-map-container";
     this.innerContainer.style.cssText = `
@@ -52,13 +52,13 @@ const MapHook = {
       z-index: 1;
     `;
 
-    // 添加到外部容器
+    // Add to outer container
     this.outerContainer.appendChild(this.innerContainer);
 
     console.log("Inner map container created");
   },
 
-  // 隐藏加载指示器
+  // Hide loading indicator
   hideLoadingIndicator() {
     const loadingIndicator = document.getElementById("map-loading-indicator");
     if (loadingIndicator) {
@@ -66,11 +66,11 @@ const MapHook = {
     }
   },
 
-  // 加载Google Maps API
+  // Load Google Maps API
   loadGoogleMapsAPI(apiProxyUrl) {
     console.log("Starting Google Maps API load process");
 
-    // 添加检查和清理函数
+    // Add check and cleanup functions
     const checkMapsAPI = () => {
       return window.google &&
         window.google.maps &&
@@ -79,20 +79,20 @@ const MapHook = {
         window.google.maps.geometry.spherical;
     };
 
-    // 如果已完全加载
+    // If fully loaded
     if (checkMapsAPI()) {
       console.log("Google Maps API already fully loaded, initializing map");
       this.initMap();
       return;
     }
 
-    // 如果正在加载中
+    // If currently loading
     if (window.googleMapsApiLoading) {
       console.log("Google Maps API already loading, waiting for completion");
 
-      // 设置超时防止无限等待
+      // Set timeout to prevent infinite waiting
       let checkCount = 0;
-      const maxChecks = 50; // 5秒超时
+      const maxChecks = 50; // 5 second timeout
 
       const checkInterval = setInterval(() => {
         checkCount++;
@@ -102,29 +102,29 @@ const MapHook = {
           console.log("Google Maps API load completed during wait");
           this.initMap();
         } else if (checkCount >= maxChecks) {
-          // 超时，尝试重新加载
+          // Timeout, try reloading
           clearInterval(checkInterval);
           console.warn("Timeout waiting for Google Maps API, attempting reload");
           window.googleMapsApiLoading = false;
-          this.loadGoogleMapsAPI(apiProxyUrl); // 递归重试
+          this.loadGoogleMapsAPI(apiProxyUrl); // Recursive retry
         }
       }, 100);
       return;
     }
 
-    // 标记为加载中
+    // Mark as loading
     window.googleMapsApiLoading = true;
 
-    // 不显示加载提示，避免可能的错误通知
+    // Don't display loading prompt to avoid possible error notifications
 
-    // 创建唯一的全局回调名称
+    // Create unique global callback name
     const callbackName = "initMapCallback_" + Math.floor(Math.random() * 10000000);
 
-    // 设置回调函数
+    // Set callback function
     window[callbackName] = () => {
       console.log("Google Maps API callback executed");
 
-      // 验证加载的组件
+      // Validate loaded components
       if (checkMapsAPI()) {
         console.log("Google Maps API fully loaded with geometry library");
         window.googleMapsApiLoaded = true;
@@ -132,69 +132,69 @@ const MapHook = {
         this.initMap();
       } else {
         console.error("Google Maps API loaded but geometry library is missing");
-        // 不显示错误通知
+        // Don't display error notification
         window.googleMapsApiLoading = false;
       }
     };
 
-    // 设置错误处理
+    // Set error handling
     const handleScriptError = () => {
       console.error("Failed to load Google Maps API script");
       window.googleMapsApiLoading = false;
-      // 不显示错误通知
+      // Don't display error notification
       script.removeEventListener('error', handleScriptError);
     };
 
-    // 创建脚本元素
+    // Create script element
     const script = document.createElement("script");
     script.src = `${apiProxyUrl}/maps/api/js?libraries=geometry,places&callback=${callbackName}`;
     script.async = true;
     script.defer = true;
     script.addEventListener('error', handleScriptError);
 
-    // 添加到文档
+    // Add to document
     document.head.appendChild(script);
 
     console.log(`Google Maps API loading through proxy: ${apiProxyUrl}`);
 
-    // 设置超时保护
+    // Set timeout protection
     setTimeout(() => {
       if (!checkMapsAPI() && window.googleMapsApiLoading) {
         console.error("Google Maps API load timeout after 15 seconds");
         window.googleMapsApiLoading = false;
-        // 不显示错误通知
+        // Don't display error notification
       }
     }, 15000);
   },
 
-  // 初始化地图
+  // Initialize map
   initMap() {
     console.log("Initializing map on inner container");
 
-    // 确保容器存在且可见
+    // Ensure container exists and is visible
     if (!this.innerContainer || !document.body.contains(this.innerContainer)) {
       console.error("Map container is not in the DOM");
-      this.showNotification("地图容器不存在，请刷新页面重试", true);
-      // 尝试重新创建容器
+      this.showNotification("Map container does not exist, please refresh the page and try again", true);
+      // Try to recreate container
       this.setupMapContainers();
       if (!this.innerContainer || !document.body.contains(this.innerContainer)) {
-        return; // 如果仍然失败，退出初始化
+        return; // If still fails, exit initialization
       }
     }
 
     try {
-      // 隐藏加载指示器
+      // Hide loading indicator
       this.hideLoadingIndicator();
 
-      // 默认位置 - Brisbane
+      // Default location - Brisbane
       const defaultLocation = { lat: -27.4698, lng: 153.0251 };
 
-      // 检查Google Maps是否可用
+      // Check if Google Maps is available
       if (!window.google || !window.google.maps || !window.google.maps.Map) {
         throw new Error("Google Maps API not available");
       }
 
-      // 定义地图选项
+      // Define map options
       const mapOptions = {
         center: defaultLocation,
         zoom: 12,
@@ -214,10 +214,10 @@ const MapHook = {
           position: google.maps.ControlPosition.RIGHT_BOTTOM
         },
         fullscreenControl: true,
-        gestureHandling: 'greedy' // 即使在移动设备上也允许单指缩放
+        gestureHandling: 'greedy' // Allow single finger zoom even on mobile devices
       };
 
-      // 创建地图
+      // Create map
       this.map = new google.maps.Map(this.innerContainer, mapOptions);
 
       if (!this.map) {
@@ -226,53 +226,53 @@ const MapHook = {
 
       console.log("Map object created successfully");
 
-      // 创建信息窗口
+      // Create info window
       this.infoWindow = new google.maps.InfoWindow({
         maxWidth: 300,
         pixelOffset: new google.maps.Size(0, -30)
       });
 
-      // 注册错误处理器
+      // Register error handler
       google.maps.event.addListener(this.map, 'error', (e) => {
         console.error("Map error event:", e);
       });
 
-      // 不显示初始化通知
+      // Don't display initialization notification
 
-      // 一旦地图加载完成，加载提供商数据并自动请求位置
+      // Once map is fully loaded, load provider data and automatically request location
       google.maps.event.addListenerOnce(this.map, 'idle', () => {
         console.log("Map fully loaded and idle");
 
-        // 先加载提供商数据
+        // First load provider data
         try {
           this.loadProviderData();
         } catch (error) {
           console.error("Error loading provider data:", error);
         }
 
-        // 然后自动请求用户位置
+        // Then automatically request user location
         setTimeout(() => {
-          // 使用try/catch包裹位置请求
+          // Use try/catch to wrap location request
           try {
             this.requestUserLocation();
           } catch (error) {
             console.error("Error requesting user location:", error);
-            // 不显示错误通知，直接使用默认位置
+            // Don't display error notification, use default location
 
-            // 使用默认位置
+            // Use default location
             const defaultLocation = { lat: -27.4698, lng: 153.0251 };
             this.createUserMarker(defaultLocation);
             this.updateLocationToServer(defaultLocation);
           }
-        }, 1000); // 增加延迟确保地图完全加载
+        }, 1000); // Increase delay to ensure map fully loaded
 
-        // 保留按钮点击事件，用于用户手动触发
+        // Keep button click event for user manual trigger
         const locationBtn = document.getElementById("get-location-btn");
         if (locationBtn) {
-          // 移除任何现有的事件监听器，避免重复绑定
+          // Remove any existing event listeners to avoid duplicate binding
           locationBtn.replaceWith(locationBtn.cloneNode(true));
 
-          // 重新获取按钮引用并添加事件
+          // Re-get button reference and add event
           const newLocationBtn = document.getElementById("get-location-btn");
           if (newLocationBtn) {
             newLocationBtn.addEventListener("click", () => {
@@ -290,7 +290,7 @@ const MapHook = {
         }
       });
 
-      // 添加额外事件监听器，以防 'idle' 事件不触发
+      // Add additional event listeners to prevent 'idle' event from not firing
       setTimeout(() => {
         if (!this.providers || this.providers.length === 0) {
           console.warn("Map idle event might not have fired, forcing provider data load");
@@ -301,7 +301,7 @@ const MapHook = {
     } catch (error) {
       console.error("Error initializing map:", error);
 
-      // 尝试恢复
+      // Try to recover
       setTimeout(() => {
         if (window.google && window.google.maps) {
           console.log("Attempting to recover map initialization");
@@ -312,7 +312,7 @@ const MapHook = {
     }
   },
 
-  // 请求用户位置
+  // Request user location
   requestUserLocation() {
     console.log("Requesting user location");
 
@@ -322,13 +322,13 @@ const MapHook = {
       return;
     }
 
-    // 显示加载状态
+    // Display loading status
     this.showNotification("Getting your location...");
 
-    // 直接使用 try/catch 包裹位置请求
+    // Directly use try/catch to wrap location request
     try {
       navigator.geolocation.getCurrentPosition(
-        // 成功回调
+        // Success callback
         (position) => {
           try {
             console.log("Got user location successfully:", position);
@@ -345,41 +345,41 @@ const MapHook = {
 
             console.log("User location coordinates:", userLocation);
 
-            // 更新地图
+            // Update map
             this.map.setCenter(userLocation);
 
-            // 创建用户位置标记
+            // Create user location marker
             this.createUserMarker(userLocation);
 
-            // 位置获取成功，但这里不再显示通知
-            // 延迟一点再更新服务器，避免过快请求导致问题
+            // Location retrieved successfully, but here no notification is displayed
+            // Delay a bit before updating server to avoid fast request issues
             setTimeout(() => {
               this.updateLocationToServer(userLocation);
             }, 500);
           } catch (err) {
             console.error("Error processing position:", err);
-            this.handleLocationError({ code: 999, message: "处理位置数据时出错: " + err.message });
+            this.handleLocationError({ code: 999, message: "Error processing position: " + err.message });
           }
         },
-        // 错误回调
+        // Error callback
         (error) => {
           console.error("Geolocation error:", error.code, error.message);
           this.handleLocationError(error);
         },
-        // 位置选项
+        // Location options
         {
-          enableHighAccuracy: true,  // 尝试获取更精确的位置
-          timeout: 10000,            // 增加超时时间
-          maximumAge: 60000          // 允许缓存 1 分钟
+          enableHighAccuracy: true,  // Try to get more precise location
+          timeout: 10000,            // Increase timeout time
+          maximumAge: 60000          // Allow cache 1 minute
         }
       );
     } catch (error) {
       console.error("Exception during geolocation request:", error);
-      this.handleLocationError({ code: 999, message: "请求位置时发生异常: " + error.message });
+      this.handleLocationError({ code: 999, message: "Exception during geolocation request: " + error.message });
     }
   },
 
-  // 处理位置错误
+  // Handle location error
   handleLocationError(error) {
     console.error("Handling location error:", error);
 
@@ -389,26 +389,26 @@ const MapHook = {
     // Use default location (Brisbane)
     const defaultLocation = { lat: -27.4698, lng: 153.0251 };
 
-    // 仍然保留地图居中在默认位置
+    // Still keep map centered on default location
     this.map.setCenter(defaultLocation);
 
-    // 使用默认位置创建用户标记
+    // Use default location to create user marker
     this.createUserMarker(defaultLocation);
 
-    // 使用默认位置计算距离
+    // Use default location to calculate distance
     setTimeout(() => {
       this.updateLocationToServer(defaultLocation);
     }, 500);
   },
 
-  // 创建用户位置标记
+  // Create user location marker
   createUserMarker(location) {
-    // 如果已有标记，先移除
+    // If marker already exists, remove
     if (this.userMarker) {
       this.userMarker.setMap(null);
     }
 
-    // 创建标记
+    // Create marker
     this.userMarker = new google.maps.Marker({
       position: location,
       map: this.map,
@@ -424,7 +424,7 @@ const MapHook = {
     });
   },
 
-  // 更新位置到服务器 - 改进版
+  // Update location to server - Improved version
   updateLocationToServer(location) {
     console.log("Updating location to server:", location);
 
@@ -451,26 +451,26 @@ const MapHook = {
 
       // No notification here
 
-      // 计算到每个提供商的距离
+      // Calculate distance to each provider
       const providerDistances = {};
       const userLatLng = new google.maps.LatLng(location.lat, location.lng);
 
-      // 有效提供商计数
+      // Valid provider count
       let validProviderCount = 0;
 
-      // 计算距离和存储
+      // Calculate distance and store
       this.providers.forEach(provider => {
         try {
-          // 校验提供商数据
+          // Validate provider data
           if (!provider || !provider.id ||
             typeof provider.latitude !== 'number' ||
             typeof provider.longitude !== 'number' ||
             isNaN(provider.latitude) || isNaN(provider.longitude)) {
             console.warn(`Invalid provider data:`, provider);
-            return;  // 跳过此提供商
+            return;  // Skip this provider
           }
 
-          // 使用 Google Maps 的距离计算函数
+          // Use Google Maps distance calculation function
           const providerLatLng = new google.maps.LatLng(provider.latitude, provider.longitude);
           const distance = google.maps.geometry.spherical.computeDistanceBetween(userLatLng, providerLatLng);
 
@@ -479,7 +479,7 @@ const MapHook = {
             return;
           }
 
-          // 存储距离数据 (转换为整数米)
+          // Store distance data (converted to integer meters)
           const distanceInMeters = Math.round(distance);
           providerDistances[provider.id] = distanceInMeters;
           console.log(`Distance to provider ${provider.id} (${provider.name}): ${distanceInMeters}m`);
@@ -492,43 +492,43 @@ const MapHook = {
 
       if (validProviderCount === 0) {
         console.warn("No valid distances calculated for any provider");
-        this.showNotification("无法计算到提供商的距离", true);
+        this.showNotification("Cannot calculate distance to providers", true);
         return;
       }
 
       console.log(`Successfully calculated distances for ${validProviderCount} providers`);
 
-      // 准备发送到服务器的数据
+      // Prepare data to send to server
       const payload = {
         latitude: location.lat.toString(),
         longitude: location.lng.toString(),
         provider_distances: providerDistances
       };
 
-      // 发送到服务器
+      // Send to server
       this.pushEvent("update-location", payload);
 
-      // 显示成功通知 - 这是主要通知点
-      this.showNotification("Got your location，display nearby aged care providers", true);
+      // Display success notification - This is the main notification point
+      this.showNotification("Got your location, display nearby aged care providers", true);
 
     } catch (error) {
       console.error("Error updating location to server:", error);
     }
   },
 
-  // 加载提供商数据
+  // Load provider data
   loadProviderData() {
     console.log("Loading provider data");
 
     try {
-      // 获取并解析提供商数据
+      // Get and parse provider data
       const providersData = this.el.getAttribute('data-providers');
       if (!providersData) {
         console.log("No provider data found");
         return;
       }
 
-      // 解析提供商数据
+      // Parse provider data
       this.providers = JSON.parse(providersData)
         .map(str => {
           if (!str) return null;
@@ -544,10 +544,10 @@ const MapHook = {
 
       console.log("Parsed providers:", this.providers);
 
-      // 创建提供商标记
+      // Create provider markers
       this.createProviderMarkers();
 
-      // 调整地图边界以显示所有标记
+      // Adjust map boundaries to display all markers
       this.fitMapBounds();
 
     } catch (error) {
@@ -555,14 +555,14 @@ const MapHook = {
     }
   },
 
-  // 创建提供商标记
+  // Create provider markers
   createProviderMarkers() {
     if (!this.map) {
       console.warn("Map not available for creating markers");
       return;
     }
 
-    // 清除现有标记
+    // Clear existing markers
     if (this.markers) {
       this.markers.forEach(marker => marker.setMap(null));
     }
@@ -572,39 +572,39 @@ const MapHook = {
 
     console.log(`Creating ${this.providers.length} markers`);
 
-    // 边界对象
+    // Boundary object
     const bounds = new google.maps.LatLngBounds();
 
-    // 如果有用户位置，添加到边界
+    // If there's a user location, add to boundary
     if (this.userMarker) {
       bounds.extend(this.userMarker.getPosition());
     }
 
-    // 创建标记
+    // Create markers
     this.providers.forEach(provider => {
       try {
-        // 创建点位置
+        // Create point location
         const position = {
           lat: provider.latitude,
           lng: provider.longitude
         };
 
-        // 添加到边界
+        // Add to boundary
         bounds.extend(position);
 
-        // 创建标记
+        // Create marker
         const marker = new google.maps.Marker({
           position: position,
           map: this.map,
           title: provider.name
         });
 
-        // 保存引用
+        // Save reference
         this.markers.push(marker);
         this.providersById = this.providersById || {};
         this.providersById[provider.id] = { marker, provider };
 
-        // 创建信息窗口内容
+        // Create info window content
         const infoContent = `
           <div style="padding: 10px; max-width: 250px; text-align: center;">
             <h3 style="margin: 0 0 8px; font-size: 16px; cursor: pointer; color: #4285F4;"
@@ -617,7 +617,7 @@ const MapHook = {
           </div>
         `;
 
-        // 添加点击事件
+        // Add click event
         marker.addListener("click", () => {
           if (this.infoWindow) {
             this.infoWindow.close();
@@ -632,38 +632,38 @@ const MapHook = {
       }
     });
 
-    // 调整地图视图
+    // Adjust map view
     if (!bounds.isEmpty() && this.markers.length > 0) {
       this.map.fitBounds(bounds);
     }
 
-    // 添加自定义事件监听器
+    // Add custom event listeners
     document.addEventListener('select-provider', (e) => {
       this.selectProvider(e.detail.id);
     });
   },
 
-  // 选择提供商
+  // Select provider
   selectProvider(id) {
     console.log("Provider selected:", id);
 
-    // 关闭信息窗口
+    // Close info window
     if (this.infoWindow) {
       this.infoWindow.close();
     }
 
-    // 高亮标记
+    // Highlight marker
     if (this.providersById && this.providersById[id] && this.providersById[id].marker) {
       const marker = this.providersById[id].marker;
 
-      // 添加弹跳动画
+      // Add bounce animation
       marker.setAnimation(google.maps.Animation.BOUNCE);
       setTimeout(() => {
         marker.setAnimation(null);
       }, 1500);
     }
 
-    // 触发LiveView事件
+    // Trigger LiveView event
     try {
       this.pushEvent("select-provider", { id: id });
     } catch (error) {
@@ -674,80 +674,80 @@ const MapHook = {
   updated() {
     console.log("MapHook updated");
 
-    // 隐藏加载指示器
+    // Hide loading indicator
     this.hideLoadingIndicator();
 
-    // 确保容器设置
+    // Ensure container settings
     this.outerContainer = this.el;
 
-    // 如果内部容器不在DOM中，重新添加它
+    // If internal container not in DOM, re-add it
     if (!document.body.contains(this.innerContainer)) {
       console.log("Inner container lost, recreating");
       this.setupMapContainers();
 
-      // 如果地图已存在，重新加载
+      // If map already exists, reload
       if (this.map) {
-        // 重新设置地图容器
+        // Re-set map container
         const center = this.map.getCenter();
         const zoom = this.map.getZoom();
 
-        // 使用短暂延迟确保DOM更新完成
+        // Use brief delay to ensure DOM update completed
         setTimeout(() => {
-          // 重新创建地图
+          // Re-create map
           this.map = new google.maps.Map(this.innerContainer, {
             center: center,
             zoom: zoom,
             mapTypeId: google.maps.MapTypeId.ROADMAP
           });
 
-          // 重新加载提供商数据
+          // Re-load provider data
           this.loadProviderData();
 
-          // 如果有用户位置，重新创建用户标记
+          // If there's a user location, re-create user marker
           if (this.userLocation) {
             this.createUserMarker(this.userLocation);
           }
         }, 10);
       }
     } else if (this.map) {
-      // 触发地图resize事件
+      // Trigger map resize event
       google.maps.event.trigger(this.map, 'resize');
 
-      // 重新加载提供商数据
+      // Re-load provider data
       this.loadProviderData();
     }
   },
 
-  // 清理资源
+  // Clean up resources
   destroyed() {
     console.log("MapHook destroyed");
 
-    // 移除事件监听器
+    // Remove event listeners
     document.removeEventListener('select-provider', this.selectProvider);
 
-    // 清理标记
+    // Clean up markers
     if (this.markers) {
       this.markers.forEach(marker => marker.setMap(null));
       this.markers = [];
     }
 
-    // 清理用户位置标记
+    // Clean up user location marker
     if (this.userMarker) {
       this.userMarker.setMap(null);
       this.userMarker = null;
     }
 
-    // 清理信息窗口
+    // Clean up info window
     if (this.infoWindow) {
       this.infoWindow.close();
     }
   },
 
-  // 通知系统变量
+  // Notification system variable
   _notification: null,
   _notificationTimeout: null,
   
-  // 重写简化的通知方法，确保只显示位置相关通知
+  // Override simplified notification method to ensure only location-related notifications are displayed
   showNotification(message, force = false) {
     // First: check if this is one of our allowed location-related notifications
     const allowedMessages = [
@@ -756,7 +756,7 @@ const MapHook = {
       'Using default location'  // Using default location
     ];
     
-    // 检查是否为允许的位置相关通知
+    // Check if this is an allowed location-related notification
     let isAllowedMessage = false;
     for (const key of allowedMessages) {
       if (message.includes(key)) {
@@ -786,7 +786,7 @@ const MapHook = {
       }
     }
     
-    // 简化消息内容
+    // Simplify message content
     let displayMessage = message;
     if (message.includes('Location retrieved')) {
       displayMessage = '✅ Location retrieved';
@@ -835,7 +835,7 @@ const MapHook = {
     }, 2500);
   },
   
-  // 清除通知
+  // Clear notification
   _clearNotification() {
     if (this._notificationTimeout) {
       clearTimeout(this._notificationTimeout);
@@ -848,15 +848,15 @@ const MapHook = {
     }
   },
 
-  // 显示位置权限被拒绝的帮助指南
+  // Display help guide for location permission denied
   showPermissionDeniedHelp() {
-    // 移除任何现有通知
+    // Remove any existing notification
     const existingNotification = document.getElementById("map-notification");
     if (existingNotification) {
       existingNotification.remove();
     }
 
-    // 创建详细的帮助提示
+    // Create detailed help prompt
     const helpBox = document.createElement("div");
     helpBox.id = "permission-help-box";
     helpBox.style.cssText = `
@@ -874,7 +874,7 @@ const MapHook = {
       text-align: center;
     `;
 
-    let browserName = "您的浏览器";
+    let browserName = "Your browser";
     if (navigator.userAgent.indexOf("Chrome") !== -1) {
       browserName = "Chrome";
     } else if (navigator.userAgent.indexOf("Safari") !== -1) {
@@ -886,23 +886,23 @@ const MapHook = {
     }
 
     helpBox.innerHTML = `
-      <h3 style="margin: 0 0 15px; color: #3b82f6; font-size: 18px;">需要位置权限</h3>
-      <p style="margin: 0 0 15px; line-height: 1.5; color: #4b5563;">我们需要访问您的位置信息来查找附近的aged care providers。</p>
+      <h3 style="margin: 0 0 15px; color: #3b82f6; font-size: 18px;">Need location permission</h3>
+      <p style="margin: 0 0 15px; line-height: 1.5; color: #4b5563;">We need access to your location information to find nearby aged care providers.</p>
       <div style="margin-bottom: 15px; text-align: left; background: #f9fafb; padding: 12px; border-radius: 8px;">
-        <p style="margin: 0 0 8px; font-weight: 500; color: #374151;">如何在${browserName}中开启位置权限：</p>
+        <p style="margin: 0 0 8px; font-weight: 500; color: #374151;">How to enable location permission in ${browserName}:</p>
         <ol style="margin: 0; padding-left: 20px; color: #6b7280;">
-          <li style="margin-bottom: 5px;">点击地址栏左侧的锁定/信息图标</li>
-          <li style="margin-bottom: 5px;">在弹出菜单中找到"位置"选项</li>
-          <li style="margin-bottom: 5px;">将设置更改为"允许"</li>
-          <li>刷新页面并再次点击"使用我的位置"</li>
+          <li style="margin-bottom: 5px;">Click the lock/info icon on the left side of the address bar</li>
+          <li style="margin-bottom: 5px;">Find the "Location" option in the pop-up menu</li>
+          <li style="margin-bottom: 5px;">Change the setting to "Allow"</li>
+          <li>Refresh the page and click "Use my location" again</li>
         </ol>
       </div>
-      <button id="close-permission-help" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 500;">我知道了</button>
+      <button id="close-permission-help" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 500;">I understand</button>
     `;
 
     document.body.appendChild(helpBox);
 
-    // 添加关闭按钮事件
+    // Add close button event
     document.getElementById("close-permission-help").addEventListener("click", () => {
       helpBox.remove();
     });

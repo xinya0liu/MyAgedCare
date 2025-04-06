@@ -1,7 +1,7 @@
 defmodule MyPhoenixApp.Providers do
   @moduledoc """
-  提供商服务上下文
-  处理与aged care providers相关的业务逻辑
+  Provider service context
+  Handles business logic related to aged care providers
   """
 
   import Ecto.Query
@@ -9,37 +9,37 @@ defmodule MyPhoenixApp.Providers do
   alias MyPhoenixApp.Providers.AgedCareProvider
 
   @doc """
-  列出靠近给定位置的提供商
-  计算点到点的距离，并按距离排序
+  List providers near a given location
+  Calculate point-to-point distance and sort by distance
   
-  ## 参数
+  ## Parameters
   
-    - latitude: 用户位置的纬度
-    - longitude: 用户位置的经度
-    - radius: 搜索半径(千米)
+    - latitude: User location latitude
+    - longitude: User location longitude
+    - radius: Search radius (kilometers)
   
-  ## 返回值
+  ## Return Value
   
-  返回格式化的提供商列表，每个都包含距离信息
+  Returns a formatted list of providers, each containing distance information
   """
   def list_nearby_providers(latitude, longitude, radius) when is_number(latitude) and is_number(longitude) do
-    # 构建查询
+    # Build query
     query = AgedCareProvider.list_nearby(latitude, longitude, radius)
     
-    # 执行查询
+    # Execute query
     providers = Repo.all(query)
     
-    # 处理结果
+    # Process results
     providers
     |> Enum.map(fn provider ->
-      # 计算可读的距离
+      # Calculate readable distance
       readable_distance = 
         case provider.distance do
-          d when d < 1000 -> "#{round(d)}米"
-          d -> "#{Float.round(d / 1000, 1)}公里"
+          d when d < 1000 -> "#{round(d)} meters"
+          d -> "#{Float.round(d / 1000, 1)} kilometers"
         end
       
-      # 构建API响应格式
+      # Build API response format
       %{
         id: provider.id,
         name: provider.name,
@@ -58,15 +58,15 @@ defmodule MyPhoenixApp.Providers do
   end
 
   @doc """
-  获取单个提供商详情
+  Get details for a single provider
   
-  ## 参数
+  ## Parameters
   
-    - id: 提供商ID
+    - id: Provider ID
   
-  ## 返回值
+  ## Return Value
   
-  返回单个提供商详情，如果未找到则返回nil
+  Returns details for a single provider, or nil if not found
   """
   def get_provider(id) do
     case Repo.get(AgedCareProvider, id) do

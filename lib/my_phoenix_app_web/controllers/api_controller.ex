@@ -4,25 +4,25 @@ defmodule MyPhoenixAppWeb.ApiController do
   alias MyPhoenixApp.Providers
 
   @doc """
-  返回离指定位置最近的提供商
-  需要参数:
-  - lat: 纬度
-  - lng: 经度
-  - radius: 搜索半径(公里)，默认为50km
+  Return providers nearest to the specified location
+  Required parameters:
+  - lat: latitude
+  - lng: longitude
+  - radius: search radius (kilometers), default is 50km
   """
   def nearby_providers(conn, params) do
-    # 解析参数
+    # Parse parameters
     with {:ok, lat} <- parse_float(params["lat"]),
          {:ok, lng} <- parse_float(params["lng"]),
          {:ok, radius} <- parse_radius(params["radius"]) do
       
-      # 打印信息用于调试
-      IO.puts("查询位置附近的提供商: 纬度#{lat}, 经度#{lng}, 半径#{radius}公里")
+      # Print information for debugging
+      IO.puts("Querying providers near location: Latitude: #{lat}, Longitude: #{lng}, Radius: #{radius} kilometers")
       
-      # 获取附近的提供商
+      # Get nearby providers
       providers = Providers.list_nearby_providers(lat, lng, radius)
       
-      # 返回JSON响应
+      # Return JSON response
       conn
       |> put_resp_content_type("application/json")
       |> json(%{
@@ -34,18 +34,18 @@ defmodule MyPhoenixAppWeb.ApiController do
       })
     else
       {:error, field, message} ->
-        # 处理无效参数的错误
+        # Process invalid parameter errors
         conn
         |> put_status(400)
         |> json(%{
           success: false,
-          error: "无效的#{field}: #{message}"
+          error: "Invalid #{field}: #{message}"
         })
     end
   end
 
   @doc """
-  根据ID获取单个提供商信息
+  Get information for a single provider by ID
   """
   def get_provider(conn, %{"id" => id}) do
     case parse_id(id) do
@@ -54,7 +54,7 @@ defmodule MyPhoenixAppWeb.ApiController do
           nil ->
             conn
             |> put_status(404)
-            |> json(%{success: false, error: "提供商不存在"})
+            |> json(%{success: false, error: "Provider does not exist"})
           
           provider ->
             conn
@@ -69,33 +69,33 @@ defmodule MyPhoenixAppWeb.ApiController do
     end
   end
 
-  # 辅助函数: 解析ID
+  # Helper function: Parse ID
   defp parse_id(id) when is_integer(id), do: {:ok, id}
   defp parse_id(id) when is_binary(id) do
     case Integer.parse(id) do
       {num, ""} -> {:ok, num}
-      _ -> {:error, "ID必须是有效的整数"}
+      _ -> {:error, "ID must be a valid integer"}
     end
   end
-  defp parse_id(_), do: {:error, "无效的ID格式"}
+  defp parse_id(_), do: {:error, "Invalid ID format"}
 
-  # 辅助函数: 解析浮点数
-  defp parse_float(nil), do: {:error, "lat/lng", "参数不能为空"}
+  # Helper function: Parse float
+  defp parse_float(nil), do: {:error, "lat/lng", "Parameter cannot be empty"}
   defp parse_float(value) when is_number(value), do: {:ok, value}
   defp parse_float(value) when is_binary(value) do
     case Float.parse(value) do
       {num, _} -> {:ok, num}
-      :error -> {:error, "lat/lng", "必须是有效的数字"}
+      :error -> {:error, "lat/lng", "Must be a valid number"}
     end
   end
-  defp parse_float(_), do: {:error, "lat/lng", "无效的格式"}
+  defp parse_float(_), do: {:error, "lat/lng", "Invalid format"}
 
-  # 辅助函数: 解析并验证搜索半径
-  defp parse_radius(nil), do: {:ok, 50.0}  # 默认50公里
+  # Helper function: Parse and validate search radius
+  defp parse_radius(nil), do: {:ok, 50.0}  # Default 50 kilometers
   defp parse_radius(value) when is_number(value) do
     cond do
-      value <= 0 -> {:error, "radius", "必须大于0"}
-      value > 500 -> {:ok, 500.0}  # 限制最大半径为500公里
+      value <= 0 -> {:error, "radius", "Must be greater than 0"}
+      value > 500 -> {:ok, 500.0}  # Limit maximum radius to 500 kilometers
       true -> {:ok, value}
     end
   end
@@ -103,12 +103,12 @@ defmodule MyPhoenixAppWeb.ApiController do
     case Float.parse(value) do
       {num, _} ->
         cond do
-          num <= 0 -> {:error, "radius", "必须大于0"}
-          num > 500 -> {:ok, 500.0}  # 限制最大半径
+          num <= 0 -> {:error, "radius", "Must be greater than 0"}
+          num > 500 -> {:ok, 500.0}  # Limit maximum radius
           true -> {:ok, num}
         end
-      :error -> {:error, "radius", "必须是有效的数字"}
+      :error -> {:error, "radius", "Must be a valid number"}
     end
   end
-  defp parse_radius(_), do: {:error, "radius", "无效的格式"}
+  defp parse_radius(_), do: {:error, "radius", "Invalid format"}
 end
