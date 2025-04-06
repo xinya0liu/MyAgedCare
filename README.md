@@ -2,7 +2,7 @@
 
 MyAgedCare is a Phoenix-based application designed to help users find and manage aged care service providers. Users can search for nearby aged care service providers based on location, get detailed information, and schedule visits.
 
-🔗 Live Demo: https://my-phoenix-app.fly.dev/providers
+**🔗 [Live Demo: https://my-phoenix-app.fly.dev/providers](https://my-phoenix-app.fly.dev/providers)**
 
 ## Features
 
@@ -23,73 +23,86 @@ MyAgedCare is a Phoenix-based application designed to help users find and manage
 
 ### Prerequisites
 
-- Elixir (~> 1.14)
+This project uses [ASDF](https://asdf-vm.com/) to manage tool versions:
+- Erlang: 27.0.0
+- Elixir: 1.18.3-otp-27
 - Phoenix (~> 1.7)
 - PostgreSQL
-- Node.js and npm
 
-### Setup Steps
+### Development Environment Setup
 
-1. **Clone the repository**
+#### 1. ASDF Setup (Recommended)
 
-   ```bash
-   git clone https://github.com/xinya0liu/MyAgedCare.git
-   ```
+```bash
+# Install ASDF (if not already installed)
+git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.13.1
 
-2. **Navigate to project directory**
+# Add to your shell (bash)
+echo '. "$HOME/.asdf/asdf.sh"' >> ~/.bashrc
+source ~/.bashrc
 
-   ```bash
-   cd MyAgedCare
-   ```
+# Add to your shell (zsh)
+echo '. "$HOME/.asdf/asdf.sh"' >> ~/.zshrc
+echo 'fpath=(${ASDF_DIR}/completions $fpath)' >> ~/.zshrc
+echo 'autoload -Uz compinit && compinit' >> ~/.zshrc
+source ~/.zshrc
 
-3. **Copy setup database script**
+# Install plugins
+asdf plugin add erlang
+asdf plugin add elixir
 
-   ```bash
-   cp ../setup_db.exs .
-   ```
+# In project directory, this will install versions from .tool-versions
+cd MyAgedCare
+asdf install
+```
 
-4. **Install dependencies**
+### 2. Project Setup
 
-   ```bash
-   mix deps.get
-   ```
+```bash
+# Clone repository
+git clone https://github.com/xinya0liu/MyAgedCare.git
 
-5. **Create database**
+# Navigate to project
+cd MyAgedCare && ls -la
 
-   ```bash
-   mix ecto.create
-   ```
+# Copy setup script
+cp ../setup_db.exs .
 
-6. **Run database migrations**
+# Install dependencies
+mix deps.get
 
-   ```bash
-   mix ecto.migrate
-   ```
+# Create database
+mix ecto.create
 
-7. **Load initial data**
+# Run migrations
+mix ecto.migrate
 
-   ```bash
-   mix run setup_db.exs
-   ```
+# Load initial data
+mix run setup_db.exs
+```
 
-   ✅ The script will:
-   - Clear existing data
-   - Insert 8 aged care provider records as seeders
-   - Display the number of records (8) in the database
+✅ The setup script will:
+- Clear existing data
+- Insert 8 aged care provider records
+- Display the record count (8) in the database
 
-8. **Start Phoenix server**
+### 3. Launch Application
 
-   ```bash
-   mix phx.server
-   ```
+```bash
+# Start Phoenix server
+mix phx.server
+```
 
-9. **Access the application**
-
-   Open your browser and visit [http://localhost:4000](http://localhost:4000)
+📱 **Access the application:**
+- Local: [http://localhost:4000](http://localhost:4000)
 
 ## Contributing
 
 Contributions via issues and pull requests are welcome.
+
+**Note for contributors:**
+- The project includes a `.tool-versions` file to ensure consistent development environments
+- Run `asdf install` in the project directory to use the correct versions
 
 ## License
 
@@ -97,8 +110,9 @@ This project is licensed under the MIT License.
 
 ## Learn More
 
-- [Official website](https://www.phoenixframework.org/)
-- [Guides](https://hexdocs.pm/phoenix/overview.html)
-- [Docs](https://hexdocs.pm/phoenix)
-- [Forum](https://elixirforum.com/c/phoenix-forum)
-- [Source](https://github.com/phoenixframework/phoenix)
+- [Phoenix Framework](https://www.phoenixframework.org/)
+- [Phoenix Guides](https://hexdocs.pm/phoenix/overview.html)
+- [Phoenix Docs](https://hexdocs.pm/phoenix)
+- [Elixir Forum](https://elixirforum.com/c/phoenix-forum)
+- [Phoenix Source](https://github.com/phoenixframework/phoenix)
+- [ASDF Version Manager](https://asdf-vm.com/)
